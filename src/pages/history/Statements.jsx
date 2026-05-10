@@ -115,7 +115,7 @@ const Statements = () => {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 <SummaryCard label="Opening Balance" value={previewData.summary.openingBalance} />
                 <SummaryCard label="Total Credits" value={previewData.summary.totalCredits} isCredit />
                 <SummaryCard label="Total Debits" value={previewData.summary.totalDebits} isDebit />

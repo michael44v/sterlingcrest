@@ -221,7 +221,7 @@ const DashboardHome = () => {
           <p className="text-xs font-semibold uppercase tracking-widest mb-3 px-1 text-gray-400">
             Quick Actions
           </p>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {quickActions.map((a) => (
               <ActionCard key={a.label} {...a} />
             ))}
