@@ -13,7 +13,10 @@ class EmailService {
         // ... configure SMTP ...
         // $mail->send();
 
-        // For now, it's a stub
+        // Logging for development
+        $log_entry = "[" . date('Y-m-d H:i:s') . "] TO: $to | SUBJECT: $subject\nBODY: " . strip_tags($body) . "\n------------------\n";
+        file_put_contents(__DIR__ . "/mail.log", $log_entry, FILE_APPEND);
+
         return true;
     }
 

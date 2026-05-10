@@ -1,21 +1,3 @@
-@import "tailwindcss";
-
-:root {
-  --chase-blue: #117ACA;
-  --chase-navy: #0A2D5A;
-  --chase-light: #E8F4FC;
-  --chase-mid: #1A6BB5;
-  --chase-border: #C8DCF0;
-}
-
-@theme {
-  --color-chase-blue: var(--chase-blue);
-  --color-chase-navy: var(--chase-navy);
-  --color-chase-light: var(--chase-light);
-  --color-chase-mid: var(--chase-mid);
-  --color-chase-border: var(--chase-border);
-}
-
-body {
-  @apply bg-gray-50 text-gray-900 font-sans;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

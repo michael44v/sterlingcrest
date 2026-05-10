@@ -8,13 +8,13 @@ export default {
     extend: {
       colors: {
         chase: {
-          blue:    '#117ACA',   // Primary
-          navy:    '#0A2D5A',   // Dark
-          light:   '#E8F4FC',   // Light
-          mid:     '#1A6BB5',   // Medium
-          border:  '#C8DCF0',   // Border
-        }
-      }
+          blue: '#117ACA',
+          navy: '#0A2D5A',
+          light: '#E8F4FC',
+          mid: '#1A6BB5',
+          border: '#C8DCF0',
+        },
+      },
     },
   },
   plugins: [],
