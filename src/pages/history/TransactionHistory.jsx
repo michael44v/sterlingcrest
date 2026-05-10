@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { formatUSD } from '../../utils/formatCurrency';
-import { ArrowUpRight, ArrowDownLeft, Search, Filter } from 'lucide-react';
+import { ArrowUpRight, ArrowDownLeft, Search, Filter, FileText } from 'lucide-react';
 
 const TransactionHistory = () => {
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,8 +48,12 @@ const TransactionHistory = () => {
             <Filter size={18} />
             Filters
           </button>
-          <button className="px-4 py-2 bg-chase-light text-chase-blue font-semibold rounded-lg hover:bg-chase-blue hover:text-white transition-all">
-            Export PDF
+          <button
+            onClick={() => navigate('/history/statements')}
+            className="flex items-center gap-2 px-4 py-2 bg-chase-light text-chase-blue font-semibold rounded-lg hover:bg-chase-blue hover:text-white transition-all"
+          >
+            <FileText size={18} />
+            Generate Statement
           </button>
         </div>
       </div>
