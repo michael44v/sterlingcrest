@@ -1,16 +1,25 @@
-# React + Vite
+NorthBridge Banking Co
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Backend (PHP REST API)
 
-Currently, two official plugins are available:
+    Architecture: Built a pure PHP REST API using a single api.php entry point with mysqli prepared statements for security.
+    Authentication: Implemented JWT-based authentication with access and refresh tokens, and email OTP verification (OTP is logged to backend/mail.log for development).
+    Core Banking: Implemented internal transfers with atomic transactions, tiered daily limits (Tier 1: $0, Tier 2: $5,000, Tier 3: $50,000), and transaction PIN verification.
+    Savings: Developed a Fixed Deposits engine with interest calculations and KYC Tier 3 gating.
+    Admin Panel: Created endpoints for analytics, user management, KYC review, and AML auto-flagging for transfers over $1,000,000.
+    Security: Secured state-changing actions to only accept JSON input and implemented secure password/PIN hashing with bcrypt.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Frontend (React)
 
-## React Compiler
+    Design: Built a professional UI using Tailwind CSS and the Chase Bank color palette (#117ACA, #0A2D5A).
+    Dashboard: Implemented a central hub for balance, recent transactions, and quick actions.
+    Onboarding: Created a multi-step registration and KYC upload flow.
+    Investments: Built the Fixed Deposits interface with a real-time interest calculator.
+    Statements: Implemented client-side PDF generation for formal bank statements.
+    Admin Interface: Developed a full suite of administrative tools for monitoring the platform.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Next Steps
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+    Final Validation: I plan to perform a final check of the Admin panel and transfer limit enforcement to ensure everything is working as expected.
+    Quality Assurance: I will complete the required testing, review, and reflection.
+    Project Completion: I will then provide the finished codebase.
