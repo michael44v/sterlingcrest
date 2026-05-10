@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import api from '../../api/axios';
 import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
-import { Upload, CheckCircle2, ShieldInfo, Camera, MapPin } from 'lucide-react';
+import { Upload, CheckCircle2, Shield, Camera, MapPin } from 'lucide-react';
 
 const KYCUpload = () => {
   const [step, setStep] = useState(1);
@@ -15,7 +15,7 @@ const KYCUpload = () => {
   });
 
   const steps = [
-    { id: 1, title: 'Personal ID', icon: ShieldInfo, fields: ['id_front', 'id_back'] },
+    { id: 1, title: 'Personal ID', icon: Shield, fields: ['id_front', 'id_back'] },
     { id: 2, title: 'Selfie Verification', icon: Camera, fields: ['selfie'] },
     { id: 3, title: 'Proof of Address', icon: MapPin, fields: ['address_doc'] }
   ];
