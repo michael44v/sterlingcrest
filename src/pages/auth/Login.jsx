@@ -1,19 +1,78 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import Button from '../../components/ui/Button';
-import Input from '../../components/ui/Input';
-import Logo from '../../components/ui/Logo';
-import USDRatesWidget from '../../components/ui/USDRatesWidget';
 import toast from 'react-hot-toast';
-import { ShieldCheck, Globe, Zap, ArrowRight } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Globe } from 'lucide-react';
+import GlobeBackground from '../../components/ui/Globebackground';
 
+/* ── Shared sub-components ───────────────────────────────────────────── */
+const LogoRow = ({ subtitle }) => (
+  <div style={{ textAlign: 'center', marginBottom: '1.5rem', position: 'relative', zIndex: 2 }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
+      <div style={{
+        width: 34, height: 34,
+        background: 'linear-gradient(135deg, #117ACA, #0A2D5A)',
+        borderRadius: 9,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+          <polyline points="9 22 9 12 15 12 15 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </div>
+      <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#0A2D5A', letterSpacing: '-0.4px' }}>
+        NorthBridge
+      </span>
+    </div>
+    <p style={{ fontSize: 10, color: '#6B7A99', margin: 0, fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>
+      {subtitle}
+    </p>
+  </div>
+);
+
+const Field = ({ label, type = 'text', placeholder, value, onChange, name }) => {
+  const [focused, setFocused] = useState(false);
+  return (
+    <div style={{ marginBottom: '1rem' }}>
+      <label style={{
+        display: 'block', fontSize: 10, fontWeight: 700, color: '#5A6A8A',
+        marginBottom: 5, fontFamily: '"DM Sans", sans-serif',
+        letterSpacing: '0.07em', textTransform: 'uppercase',
+      }}>
+        {label}
+      </label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          width: '100%', boxSizing: 'border-box',
+          padding: '13px 15px',
+          fontSize: 14, fontFamily: '"DM Sans", sans-serif',
+          background: 'rgba(255,255,255,0.9)',
+          border: `1.5px solid ${focused ? '#117ACA' : '#D8E4F0'}`,
+          borderRadius: 11,
+          outline: 'none',
+          color: '#0A2D5A',
+          transition: 'border-color 0.2s, box-shadow 0.2s',
+          boxShadow: focused ? '0 0 0 3px rgba(17,122,202,0.12)' : 'none',
+        }}
+      />
+    </div>
+  );
+};
+
+/* ── Login Page ──────────────────────────────────────────────────────── */
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const [loading, setLoading]   = useState(false);
+  const { login }               = useAuth();
+  const navigate                = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,115 +92,155 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-white font-sans text-[#0A2D5A]">
-      {/* Left Side: Professional Branding / Hero */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-[#0A2D5A] p-16 text-white relative overflow-hidden">
-        <div className="relative z-10">
-          <Logo color="white" className="mb-12" />
-          <h2 className="text-5xl font-black leading-tight mb-6">
-            Institutional Grade <br/>
-            <span className="text-[#117ACA]">USD Banking</span> <br/>
-            for the Digital Age.
-          </h2>
-          <p className="text-white/60 text-lg max-w-md">
-            Secure, fast, and transparent financial services powered by NorthBridge infrastructure.
-          </p>
-        </div>
+    <div style={{
+      minHeight: '100vh', width: '100%',
+      background: 'linear-gradient(170deg, #EBF3FB 0%, #F5F8FF 45%, #EEF3FF 100%)',
+      fontFamily: '"DM Sans", sans-serif',
+      display: 'flex', flexDirection: 'column',
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Google font */}
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-        {/* Heavy Widget: Trust Badges / Stats */}
-        <div className="relative z-10 grid grid-cols-2 gap-8">
-          <USDRatesWidget />
-          <div className="bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-md flex flex-col justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <ShieldCheck className="text-[#117ACA]" size={20} />
-                <p className="text-sm font-bold uppercase tracking-widest text-white/40">Security</p>
-              </div>
-              <p className="text-xl font-bold">AES-256 Encrypted</p>
-              <p className="text-sm text-white/50 mt-1">Institutional security protocols</p>
-            </div>
-            <div className="flex -space-x-2">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-[#0A2D5A] bg-gray-400"></div>
-              ))}
-              <div className="w-8 h-8 rounded-full border-2 border-[#0A2D5A] bg-[#117ACA] flex items-center justify-center text-[10px] font-bold">+10k</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-full h-full opacity-20 pointer-events-none">
-          <div className="absolute top-1/4 -right-20 w-96 h-96 bg-[#117ACA] rounded-full blur-[100px]"></div>
-          <div className="absolute bottom-1/4 -left-20 w-80 h-80 bg-white rounded-full blur-[100px]"></div>
-        </div>
+      {/* Globe */}
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <GlobeBackground />
       </div>
 
-      {/* Right Side: Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
-        <div className="w-full max-w-md space-y-8">
-          <div className="lg:hidden">
-            <Logo className="mb-8" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-black tracking-tight">Welcome back</h1>
-            <p className="text-gray-500 mt-2">Please enter your details to sign in.</p>
-          </div>
+      {/* Sky fade */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: '55%',
+        background: 'linear-gradient(180deg, rgba(235,243,251,0.65) 0%, transparent 100%)',
+        zIndex: 1, pointerEvents: 'none',
+      }} />
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <Input
-              label="Email Address"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="name@example.com"
-              required
-              className="py-1"
-            />
-            <div className="space-y-1">
-              <Input
-                label="Password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="py-1"
-              />
-              <div className="flex justify-end">
-                <Link to="/forgot-password" title="Forgot password?" className="text-xs font-bold text-[#117ACA] hover:underline uppercase tracking-wider">
-                  Forgot password?
-                </Link>
-              </div>
+      {/* Scrollable content */}
+      <div style={{
+        position: 'relative', zIndex: 2,
+        flex: 1, display: 'flex', flexDirection: 'column',
+        padding: '0 20px 36px',
+        maxWidth: 430, margin: '0 auto', width: '100%',
+      }}>
+        {/* Status-bar spacer */}
+        <div style={{ height: 54 }} />
+
+        {/* Live-network badge */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'rgba(17,122,202,0.10)', border: '1px solid rgba(17,122,202,0.20)',
+            borderRadius: 100, padding: '5px 14px',
+          }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#117ACA', boxShadow: '0 0 6px #117ACA' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#117ACA', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              USD Banking Network
+            </span>
+          </div>
+        </div>
+
+        <LogoRow subtitle="Institutional Banking" />
+
+        {/* Space for globe to show through */}
+        <div style={{ height: 175 }} />
+
+        {/* Frosted glass card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.88)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          borderRadius: 22,
+          border: '1px solid rgba(17,122,202,0.13)',
+          padding: '26px 22px 22px',
+          boxShadow: '0 20px 60px rgba(10,45,90,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
+        }}>
+          <h1 style={{ fontSize: 25, fontWeight: 800, color: '#0A2D5A', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
+            Welcome back
+          </h1>
+          <p style={{ fontSize: 13, color: '#7A8AA8', margin: '0 0 22px' }}>
+            Sign in to your NorthBridge account
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            <Field label="Email Address" type="email" placeholder="name@example.com"
+              value={email} onChange={e => setEmail(e.target.value)} />
+            <Field label="Password" type="password" placeholder="••••••••"
+              value={password} onChange={e => setPassword(e.target.value)} />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18, marginTop: -4 }}>
+              <Link to="/forgot-password" style={{ fontSize: 12, fontWeight: 700, color: '#117ACA', textDecoration: 'none' }}>
+                Forgot password?
+              </Link>
             </div>
 
-            <div className="flex items-center gap-3 py-2">
-              <input type="checkbox" id="remember" className="w-5 h-5 rounded border-gray-300 text-[#117ACA] focus:ring-[#117ACA]" />
-              <label htmlFor="remember" className="text-sm font-medium text-gray-600">Keep me logged in for 30 days</label>
-            </div>
-
-            <Button type="submit" loading={loading} className="w-full py-4 text-lg font-bold shadow-xl shadow-[#117ACA]/20">
-              Sign In <ArrowRight className="ml-2" size={20} />
-            </Button>
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%', padding: '15px',
+                background: loading ? '#6BA5D4' : 'linear-gradient(135deg, #117ACA 0%, #0A2D5A 100%)',
+                color: 'white', border: 'none', borderRadius: 13,
+                fontSize: 15, fontWeight: 800,
+                cursor: loading ? 'default' : 'pointer',
+                letterSpacing: '0.02em',
+                boxShadow: '0 8px 24px rgba(17,122,202,0.35)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                transition: 'opacity 0.2s, transform 0.15s',
+                transform: loading ? 'scale(0.98)' : 'scale(1)',
+                fontFamily: '"DM Sans", sans-serif',
+              }}
+            >
+              {loading ? (
+                <>
+                  <div style={{
+                    width: 17, height: 17,
+                    border: '2px solid rgba(255,255,255,0.3)',
+                    borderTopColor: 'white', borderRadius: '50%',
+                    animation: 'nb-spin 0.8s linear infinite',
+                  }} />
+                  Signing in…
+                </>
+              ) : (
+                <>Sign In <ArrowRight size={17} /></>
+              )}
+            </button>
           </form>
 
-          <div className="relative py-4">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-            <div className="relative flex justify-center text-xs uppercase"><span className="bg-gray-50 px-4 text-gray-400 font-bold tracking-widest">New to NorthBridge?</span></div>
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0' }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(10,45,90,0.08)' }} />
+            <span style={{ fontSize: 10, color: '#AAB4C8', fontWeight: 700, letterSpacing: '0.08em' }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(10,45,90,0.08)' }} />
           </div>
 
-          <Link to="/register" title="Create Account">
-            <button className="w-full py-4 border-2 border-[#C8DCF0] text-[#0A2D5A] font-black rounded-xl hover:bg-white hover:border-[#117ACA] transition-all">
-              CREATE YOUR USD ACCOUNT
+          <Link to="/register" style={{ textDecoration: 'none' }}>
+            <button style={{
+              width: '100%', padding: '14px',
+              background: 'transparent',
+              color: '#0A2D5A', border: '1.5px solid #C8DCF0',
+              borderRadius: 13, fontSize: 13, fontWeight: 800,
+              cursor: 'pointer', letterSpacing: '0.06em', textTransform: 'uppercase',
+              fontFamily: '"DM Sans", sans-serif',
+              transition: 'border-color 0.2s',
+            }}>
+              Create Bank Account
             </button>
           </Link>
+        </div>
 
-          <div className="pt-8 flex justify-center gap-6 text-gray-400">
-            <Zap size={20} />
-            <ShieldCheck size={20} />
-            <Globe size={20} />
-          </div>
+        {/* Trust badges */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 22, marginTop: 18 }}>
+          {['AES-256', 'KYC Verified', 'ISO 27001'].map(t => (
+            <span key={t} style={{ fontSize: 9, fontWeight: 700, color: '#99AABF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              {t}
+            </span>
+          ))}
         </div>
       </div>
+
+      <style>{`
+        @keyframes nb-spin { to { transform: rotate(360deg); } }
+        input::placeholder { color: #AAB8CC; }
+      `}</style>
     </div>
   );
 };

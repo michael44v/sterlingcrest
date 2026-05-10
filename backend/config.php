@@ -4,10 +4,10 @@
  */
 
 // Database Configuration
-define('DB_HOST', '127.0.0.1');
+define('DB_HOST', 'localhost');
 define('DB_NAME', 'northbridge_bank');
-define('DB_USER', 'root');
-define('DB_PASS', '');
+define('DB_USER', 'root_north');
+define('DB_PASS', 'victor47009A?');
 
 // Security Configuration
 define('JWT_SECRET', getenv('JWT_SECRET') ?: 'dev_secret_only');

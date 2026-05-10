@@ -89,7 +89,8 @@ $action = $_GET['action'] ?? '';
 switch ($action) {
     case 'register':
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
-        if (empty($data['full_name']) || empty($data['email']) || empty($data['phone']) || empty($data['password'])) {
+
+        if (empty($_GET['full_name']) || empty($_GET['email']) || empty($_GET['phone']) || empty($_GET['password'])) {
             json_response("error", "Missing required fields");
         }
 

@@ -14,7 +14,7 @@ const VirtualCardUI = ({ card, revealed, onReveal, onFreeze }) => {
 
       <div className="relative z-10 h-full flex flex-col justify-between">
         <div className="flex justify-between items-start">
-          <div className="font-bold text-lg italic tracking-tighter">NorthBridge <span className="font-normal opacity-70">Virtual</span></div>
+          <div className="font-bold text-lg italic tracking-tighter">NorthBridge Bank <span className="font-normal opacity-70">Virtual</span></div>
           <div className="text-right">
             <p className="text-[10px] uppercase font-bold opacity-50">Card Type</p>
             <p className="text-sm font-black italic">{card?.network?.toUpperCase() || 'VISA'}</p>
