@@ -22,7 +22,7 @@ const SavingsGoals = () => {
         </Button>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {goals.map((goal) => {
           const progress = (goal.current / goal.target) * 100;
           return (

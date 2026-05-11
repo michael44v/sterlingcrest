@@ -38,7 +38,7 @@ const AccountDetails = () => {
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-8 rounded-2xl border border-chase-border shadow-sm space-y-6">
           <div className="flex items-center gap-4">
             <div className="p-3 bg-chase-light text-chase-blue rounded-xl">

@@ -84,7 +84,7 @@ const VerifyEmail = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="flex justify-between gap-2">
+            <div className="flex justify-between gap-1 sm:gap-2">
               {[...Array(6)].map((_, i) => (
                 <input
                   key={i}

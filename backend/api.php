@@ -341,6 +341,48 @@ switch ($action) {
         json_response("success", "Transactions", $rows);
         break;
 
+    case 'get_statement_data':
+        $user = require_auth();
+        $date_from = $_GET['date_from'] ?? '';
+        $date_to = $_GET['date_to'] ?? '';
+
+        if (!$date_from || !$date_to) json_response("error", "Date range required");
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT id, balance FROM accounts WHERE user_id = ?");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $acc = $stmt->get_result()->fetch_assoc();
+
+        $stmt2 = $db->prepare("SELECT created_at as date, narration, reference, type, amount, balance_after FROM transactions
+                               WHERE account_id = ? AND DATE(created_at) BETWEEN ? AND ? ORDER BY created_at ASC");
+        $stmt2->bind_param("iss", $acc['id'], $date_from, $date_to);
+        $stmt2->execute();
+        $res = $stmt2->get_result();
+        $txs = [];
+        $totalCredits = 0;
+        $totalDebits = 0;
+
+        while ($row = $res->fetch_assoc()) {
+            $txs[] = $row;
+            if ($row['type'] === 'credit') $totalCredits += $row['amount'];
+            else $totalDebits += $row['amount'];
+        }
+
+        $openingBalance = (count($txs) > 0) ? ($txs[0]['balance_after'] - ($txs[0]['type'] === 'credit' ? $txs[0]['amount'] : -$txs[0]['amount'])) : $acc['balance'];
+        $closingBalance = (count($txs) > 0) ? end($txs)['balance_after'] : $acc['balance'];
+
+        json_response("success", "Statement data", [
+            "summary" => [
+                "openingBalance" => (float)$openingBalance,
+                "closingBalance" => (float)$closingBalance,
+                "totalCredits" => (float)$totalCredits,
+                "totalDebits" => (float)$totalDebits
+            ],
+            "transactions" => $txs
+        ]);
+        break;
+
     case 'internal_transfer':
         $user = require_auth();
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
@@ -414,6 +456,13 @@ switch ($action) {
             $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
             $stmt6->execute();
 
+            // Credit Notification for receiver
+            $notif_title = "Credit Alert: $" . number_format($data['amount'], 2);
+            $notif_msg = "You have received $" . number_format($data['amount'], 2) . " from " . $sender['full_name'];
+            $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'credit', ?, ?)");
+            $stmt_notif->bind_param("iss", $receiver['id'], $notif_title, $notif_msg);
+            $stmt_notif->execute();
+
             if ($data['amount'] > 1000000) {
                 $reason = "High value transfer: $" . number_format($data['amount'], 2);
                 $stmt_aml = $db->prepare("INSERT INTO aml_flags (transaction_id, reason) VALUES (?, ?)");
@@ -468,6 +517,52 @@ switch ($action) {
         $stmt->bind_param("iissss", $user['sub'], $data['tier_requested'], $data['id_front_url'], $data['id_back_url'], $data['selfie_url'], $data['address_doc_url']);
         $stmt->execute();
         json_response("success", "KYC Submitted");
+        break;
+
+    case 'deposit':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['amount']) || empty($data['method'])) json_response("error", "Amount and method required");
+
+        $db = Database::getInstance()->getConnection();
+        $stmt1 = $db->prepare("SELECT id, balance FROM accounts WHERE user_id = ?");
+        $stmt1->bind_param("i", $user['sub']);
+        $stmt1->execute();
+        $acc = $stmt1->get_result()->fetch_assoc();
+
+        $db->begin_transaction();
+        try {
+            $ref = "DEP" . time() . strtoupper(bin2hex(random_bytes(3)));
+
+            if ($data['method'] === 'card') {
+                $stmt2 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+                $stmt2->bind_param("di", $data['amount'], $acc['id']);
+                $stmt2->execute();
+
+                $bal_after = $acc['balance'] + $data['amount'];
+                $stmt3 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, status) VALUES (?, 'credit', 'deposit', ?, ?, 'Card Deposit', ?, 'completed')");
+                $stmt3->bind_param("idds", $acc['id'], $data['amount'], $bal_after, $ref);
+                $stmt3->execute();
+
+                // Credit Notification
+                $notif_title = "Deposit Successful: $" . number_format($data['amount'], 2);
+                $notif_msg = "Your card deposit of $" . number_format($data['amount'], 2) . " has been credited to your account.";
+                $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'credit', ?, ?)");
+                $stmt_notif->bind_param("iss", $user['sub'], $notif_title, $notif_msg);
+                $stmt_notif->execute();
+            } else {
+                $stmt3 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, status) VALUES (?, 'credit', 'deposit', ?, ?, 'Bank Wire Deposit', ?, 'pending')");
+                $bal_after = $acc['balance']; // stays same until confirmed
+                $stmt3->bind_param("idds", $acc['id'], $data['amount'], $bal_after, $ref);
+                $stmt3->execute();
+            }
+
+            $db->commit();
+            json_response("success", "Deposit processed");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Deposit failed");
+        }
         break;
 
     case 'get_fixed_deposits':
@@ -535,6 +630,21 @@ switch ($action) {
         } catch (Exception $e) {
             $db->rollback();
             json_response("error", "Failed: " . $e->getMessage());
+        }
+        break;
+
+    case 'get_card_details_basic':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT card_number_last4, expiry_month, expiry_year, network, status FROM virtual_cards WHERE account_id = (SELECT id FROM accounts WHERE user_id = ?)");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $card = $stmt->get_result()->fetch_assoc();
+        if ($card) {
+            $card['expiry'] = str_pad($card['expiry_month'], 2, '0', STR_PAD_LEFT) . "/" . substr($card['expiry_year'], -2);
+            json_response("success", "Basic card details", $card);
+        } else {
+            json_response("error", "No card found");
         }
         break;
 
@@ -615,6 +725,31 @@ switch ($action) {
         $stmt->bind_param("i", $user['sub']);
         $stmt->execute();
         json_response("success", "Card status updated");
+        break;
+
+    case 'create_virtual_card':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+
+        // Check if user already has a card
+        $stmt_check = $db->prepare("SELECT id FROM virtual_cards WHERE account_id = (SELECT id FROM accounts WHERE user_id = ?)");
+        $stmt_check->bind_param("i", $user['sub']);
+        $stmt_check->execute();
+        if ($stmt_check->get_result()->fetch_assoc()) {
+            json_response("error", "You already have a virtual card");
+        }
+
+        $last4 = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $card_hash = Security::hashData("411122223333" . $last4);
+        $cvv_hash = Security::hashData("123");
+        $exp_m = date('n');
+        $exp_y = date('Y') + 3;
+
+        $stmt = $db->prepare("INSERT INTO virtual_cards (account_id, card_number_last4, card_number_hash, cvv_hash, expiry_month, expiry_year, network) VALUES ((SELECT id FROM accounts WHERE user_id = ?), ?, ?, ?, ?, ?, 'visa')");
+        $stmt->bind_param("isssii", $user['sub'], $last4, $card_hash, $cvv_hash, $exp_m, $exp_y);
+        $stmt->execute();
+
+        json_response("success", "Virtual card created successfully");
         break;
 
     case 'admin_get_analytics':
@@ -744,6 +879,53 @@ switch ($action) {
         }
 
         json_response("success", "AML Flag resolved");
+        break;
+
+    case 'get_beneficiaries':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM beneficiaries WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) { $rows[] = $row; }
+        json_response("success", "Beneficiaries", $rows);
+        break;
+
+    case 'add_beneficiary':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['account_number']) || empty($data['account_name'])) json_response("error", "Missing fields");
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("INSERT INTO beneficiaries (user_id, account_number, account_name) VALUES (?, ?, ?)");
+        $stmt->bind_param("iss", $user['sub'], $data['account_number'], $data['account_name']);
+        $stmt->execute();
+        json_response("success", "Beneficiary added");
+        break;
+
+    case 'get_notifications':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) { $rows[] = $row; }
+        json_response("success", "Notifications", $rows);
+        break;
+
+    case 'mark_notif_read':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['id'])) json_response("error", "ID required");
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?");
+        $stmt->bind_param("ii", $data['id'], $user['sub']);
+        $stmt->execute();
+        json_response("success", "Marked as read");
         break;
 
     case 'logout':
