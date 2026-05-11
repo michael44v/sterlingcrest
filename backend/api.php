@@ -90,7 +90,7 @@ switch ($action) {
     case 'register':
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
 
-        if (empty($_GET['full_name']) || empty($_GET['email']) || empty($_GET['phone']) || empty($_GET['password'])) {
+        if (empty($data['full_name']) || empty($data['email']) || empty($data['phone']) || empty($data['password'])) {
             json_response("error", "Missing required fields");
         }
 
@@ -183,9 +183,9 @@ switch ($action) {
             json_response("error", "Invalid email or password");
         }
 
-        if (!$user['email_verified_at']) {
-            json_response("error", "Email not verified", ["user_id" => $user['id']]);
-        }
+      //  if (!$user['email_verified_at']) {
+        //    json_response("error", "Email not verified", ["user_id" => $user['id']]);
+        //}
 
         if ($user['status'] !== 'active') {
             json_response("error", "Account is " . $user['status']);
@@ -345,7 +345,7 @@ switch ($action) {
         $user = require_auth();
         $date_from = $_GET['date_from'] ?? '';
         $date_to = $_GET['date_to'] ?? '';
-
+        
         if (!$date_from || !$date_to) json_response("error", "Date range required");
 
         $db = Database::getInstance()->getConnection();
@@ -354,7 +354,7 @@ switch ($action) {
         $stmt->execute();
         $acc = $stmt->get_result()->fetch_assoc();
 
-        $stmt2 = $db->prepare("SELECT created_at as date, narration, reference, type, amount, balance_after FROM transactions
+        $stmt2 = $db->prepare("SELECT created_at as date, narration, reference, type, amount, balance_after FROM transactions 
                                WHERE account_id = ? AND DATE(created_at) BETWEEN ? AND ? ORDER BY created_at ASC");
         $stmt2->bind_param("iss", $acc['id'], $date_from, $date_to);
         $stmt2->execute();
@@ -362,7 +362,7 @@ switch ($action) {
         $txs = [];
         $totalCredits = 0;
         $totalDebits = 0;
-
+        
         while ($row = $res->fetch_assoc()) {
             $txs[] = $row;
             if ($row['type'] === 'credit') $totalCredits += $row['amount'];
@@ -415,7 +415,7 @@ switch ($action) {
         if ($sender['balance'] < $data['amount']) json_response("error", "Insufficient balance");
 
         // Tiered Limits: Tier 1 ($0), Tier 2 ($5,000), Tier 3 ($50,000)
-        $limits = [1 => 0, 2 => 5000, 3 => 50000];
+        $limits = [1 => 1000, 2 => 5000, 3 => 500000000];
         $limit = $limits[$sender['kyc_tier']] ?? 0;
 
         if ($data['amount'] > $limit) {
@@ -471,26 +471,55 @@ switch ($action) {
         }
         break;
 
-    case 'get_dashboard':
-        $user = require_auth();
-        $db = Database::getInstance()->getConnection();
+   case 'get_dashboard':
+    $user = require_auth();
+    $db = Database::getInstance()->getConnection();
 
-        $stmt = $db->prepare("SELECT balance, ledger_balance, account_number, kyc_tier FROM accounts WHERE user_id = ?");
-        $stmt->bind_param("i", $user['sub']);
-        $stmt->execute();
-        $account = $stmt->get_result()->fetch_assoc();
+    // 1. Get Account Details
+    $stmt = $db->prepare("SELECT id, balance, ledger_balance, account_number, kyc_tier FROM accounts WHERE user_id = ?");
+    $stmt->bind_param("i", $user['sub']);
+    $stmt->execute();
+    $account = $stmt->get_result()->fetch_assoc();
 
-        $stmt2 = $db->prepare("SELECT id, type, channel, amount, narration, balance_after, created_at FROM transactions WHERE account_id = (SELECT id FROM accounts WHERE user_id = ?) ORDER BY created_at DESC LIMIT 5");
-        $stmt2->bind_param("i", $user['sub']);
-        $stmt2->execute();
-        $res = $stmt2->get_result();
-        $txs = [];
-        while ($row = $res->fetch_assoc()) {
-            $txs[] = $row;
-        }
-
-        json_response("success", "Dashboard data", array_merge($account, ["recent_transactions" => $txs]));
+    if (!$account) {
+        json_response("error", "Account not found");
         break;
+    }
+
+    $accountId = $account['id'];
+
+    // 2. Get Recent Transactions
+    $stmt2 = $db->prepare("SELECT id, type, channel, amount, narration, balance_after, created_at FROM transactions WHERE account_id = ? ORDER BY created_at DESC LIMIT 5");
+    $stmt2->bind_param("i", $accountId);
+    $stmt2->execute();
+    $res = $stmt2->get_result();
+    $txs = [];
+    while ($row = $res->fetch_assoc()) {
+        $txs[] = $row;
+    }
+
+    // 3. Get Totals (Credit & Debit in ONE query to save resources)
+    $stmt3 = $db->prepare("
+        SELECT 
+            SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS total_credit,
+            SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS total_debit 
+        FROM transactions 
+        WHERE account_id = ?
+    ");
+    $stmt3->bind_param("i", $accountId);
+    $stmt3->execute();
+    $totals = $stmt3->get_result()->fetch_assoc();
+
+    $total_credit = $totals['total_credit'] ?? 0;
+    $total_debit = $totals['total_debit'] ?? 0;
+
+    // 4. Send Clean JSON Response
+    json_response("success", "Dashboard data", array_merge($account, [
+        "recent_transactions" => $txs,
+        "total_credit_sum" => (float)$total_credit,
+        "total_debit_sum" => (float)$total_debit
+    ]));
+    break;
 
     case 'get_kyc_status':
         $user = require_auth();
@@ -526,12 +555,12 @@ switch ($action) {
         $db->begin_transaction();
         try {
             $ref = "DEP" . time() . strtoupper(bin2hex(random_bytes(3)));
-
+            
             if ($data['method'] === 'card') {
                 $stmt2 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
                 $stmt2->bind_param("di", $data['amount'], $acc['id']);
                 $stmt2->execute();
-
+                
                 $bal_after = $acc['balance'] + $data['amount'];
                 $stmt3 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, status) VALUES (?, 'credit', 'deposit', ?, ?, 'Card Deposit', ?, 'completed')");
                 $stmt3->bind_param("idds", $acc['id'], $data['amount'], $bal_after, $ref);
@@ -679,10 +708,10 @@ switch ($action) {
     case 'set_pin':
         $user = require_auth();
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
-        if (empty($data['pin'])) json_response("error", "PIN required");
+        if (empty($_GET['pin'])) json_response("error", "PIN required");
 
         $db = Database::getInstance()->getConnection();
-        $pin_hash = Security::hashData($data['pin']);
+        $pin_hash = Security::hashData($_GET['pin']);
         $stmt = $db->prepare("UPDATE users SET pin_hash = ? WHERE id = ?");
         $stmt->bind_param("si", $pin_hash, $user['sub']);
         $stmt->execute();
@@ -843,7 +872,7 @@ switch ($action) {
         $user = require_auth();
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
         if (empty($data['account_number']) || empty($data['account_name'])) json_response("error", "Missing fields");
-
+        
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("INSERT INTO beneficiaries (user_id, account_number, account_name) VALUES (?, ?, ?)");
         $stmt->bind_param("iss", $user['sub'], $data['account_number'], $data['account_name']);
