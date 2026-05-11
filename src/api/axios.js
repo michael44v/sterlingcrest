@@ -18,4 +18,16 @@ instance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+instance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.data?.message?.includes('Token expired')) {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user');
+      window.location.href = '/login?expired=true';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default instance;

@@ -4,7 +4,7 @@ import VirtualCardUI from '../../components/cards/VirtualCardUI';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { Lock, Unlock, Settings2 } from 'lucide-react';
+import { Lock, Unlock, Settings2, Plus, CreditCard, ShieldCheck } from 'lucide-react';
 
 const VirtualCardPage = () => {
   const [card, setCard] = useState(null);
@@ -12,29 +12,42 @@ const VirtualCardPage = () => {
   const [revealed, setRevealed] = useState(false);
   const [pin, setPin] = useState('');
   const [showPinModal, setShowPinModal] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    fetchDashboard();
+    fetchCard();
   }, []);
 
-  const fetchDashboard = async () => {
+  const fetchCard = async () => {
+    setLoading(true);
     try {
-      const response = await api.get('?action=get_dashboard');
+      const response = await api.get('?action=get_card_details_basic');
       if (response.data.status === 'success') {
-        // In this MVP, we assume a card might be auto-created for the demo or fetched specifically
-        // Let's use a placeholder if no card data exists in the dashboard response for now
-        setCard({
-          card_number_last4: '3600',
-          network: 'visa',
-          status: 'active',
-          expiry: '04/28',
-          cvv: '123'
-        });
+        setCard(response.data.data);
+      } else {
+        setCard(null);
       }
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateCard = async () => {
+    setCreating(true);
+    try {
+      const response = await api.post('?action=create_virtual_card');
+      if (response.data.status === 'success') {
+        toast.success('Virtual card issued successfully!');
+        fetchCard();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      toast.error('Failed to create card');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -61,18 +74,54 @@ const VirtualCardPage = () => {
     try {
       const response = await api.post('?action=freeze_card');
       if (response.data.status === 'success') {
-        setCard({ ...card, status: card.status === 'active' ? 'frozen' : 'active' });
-        toast.success(`Card ${card.status === 'active' ? 'frozen' : 'unfrozen'}`);
+        const newStatus = card.status === 'active' ? 'frozen' : 'active';
+        setCard({ ...card, status: newStatus });
+        toast.success(`Card ${newStatus}`);
       }
     } catch (error) {
       toast.error('Action failed');
     }
   };
 
-  if (loading && !card) return <div>Loading Card...</div>;
+  if (loading && !card) return <div className="p-8 text-center text-gray-500 italic">Loading your card details...</div>;
+
+  if (!card) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 text-center space-y-8">
+        <div className="w-24 h-24 bg-chase-light text-chase-blue rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <CreditCard size={48} />
+        </div>
+        <div>
+          <h1 className="text-3xl font-black text-chase-navy">Virtual USD Visa</h1>
+          <p className="text-gray-500 mt-2">Get an instant virtual card for secure online global payments.</p>
+        </div>
+
+        <div className="bg-white p-8 rounded-3xl border border-chase-border shadow-lg space-y-6 text-left">
+          <div className="flex gap-4 items-start">
+            <div className="p-2 bg-green-100 text-green-600 rounded-lg"><ShieldCheck size={20}/></div>
+            <div>
+              <p className="font-bold text-chase-navy">Safe & Secure</p>
+              <p className="text-sm text-gray-500">Protect your main account balance with isolated card funding.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 items-start">
+            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg"><Plus size={20}/></div>
+            <div>
+              <p className="font-bold text-chase-navy">Instant Issuance</p>
+              <p className="text-sm text-gray-500">Your card is ready for use immediately after creation.</p>
+            </div>
+          </div>
+
+          <Button onClick={handleCreateCard} loading={creating} className="w-full py-4 text-lg font-bold">
+            Create Virtual Card
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>
         <h1 className="text-3xl font-bold text-chase-navy">Virtual USD Card</h1>
         <p className="text-gray-500">Secure online payments anywhere Visa is accepted</p>
@@ -128,10 +177,10 @@ const VirtualCardPage = () => {
               </div>
             </div>
 
-            <div className="flex justify-between items-center p-4 border border-chase-border rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+            <div className="flex justify-between items-center p-4 border border-chase-border rounded-xl hover:bg-gray-50 transition-colors cursor-pointer text-red-600">
               <div>
-                <p className="font-bold text-red-600">Terminate Card</p>
-                <p className="text-sm text-gray-500">Permanently block and delete</p>
+                <p className="font-bold">Terminate Card</p>
+                <p className="text-sm opacity-70">Permanently block and delete</p>
               </div>
             </div>
           </div>

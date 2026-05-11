@@ -456,6 +456,13 @@ switch ($action) {
             $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
             $stmt6->execute();
 
+            // Credit Notification for receiver
+            $notif_title = "Credit Alert: $" . number_format($data['amount'], 2);
+            $notif_msg = "You have received $" . number_format($data['amount'], 2) . " from " . $sender['full_name'];
+            $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'credit', ?, ?)");
+            $stmt_notif->bind_param("iss", $receiver['id'], $notif_title, $notif_msg);
+            $stmt_notif->execute();
+
             if ($data['amount'] > 1000000) {
                 $reason = "High value transfer: $" . number_format($data['amount'], 2);
                 $stmt_aml = $db->prepare("INSERT INTO aml_flags (transaction_id, reason) VALUES (?, ?)");
@@ -648,6 +655,21 @@ switch ($action) {
         }
         break;
 
+    case 'get_card_details_basic':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT card_number_last4, expiry_month, expiry_year, network, status FROM virtual_cards WHERE account_id = (SELECT id FROM accounts WHERE user_id = ?)");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $card = $stmt->get_result()->fetch_assoc();
+        if ($card) {
+            $card['expiry'] = str_pad($card['expiry_month'], 2, '0', STR_PAD_LEFT) . "/" . substr($card['expiry_year'], -2);
+            json_response("success", "Basic card details", $card);
+        } else {
+            json_response("error", "No card found");
+        }
+        break;
+
     case 'get_card_details':
         $user = require_auth();
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
@@ -725,6 +747,31 @@ switch ($action) {
         $stmt->bind_param("i", $user['sub']);
         $stmt->execute();
         json_response("success", "Card status updated");
+        break;
+
+    case 'create_virtual_card':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+
+        // Check if user already has a card
+        $stmt_check = $db->prepare("SELECT id FROM virtual_cards WHERE account_id = (SELECT id FROM accounts WHERE user_id = ?)");
+        $stmt_check->bind_param("i", $user['sub']);
+        $stmt_check->execute();
+        if ($stmt_check->get_result()->fetch_assoc()) {
+            json_response("error", "You already have a virtual card");
+        }
+
+        $last4 = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+        $card_hash = Security::hashData("411122223333" . $last4);
+        $cvv_hash = Security::hashData("123");
+        $exp_m = date('n');
+        $exp_y = date('Y') + 3;
+
+        $stmt = $db->prepare("INSERT INTO virtual_cards (account_id, card_number_last4, card_number_hash, cvv_hash, expiry_month, expiry_year, network) VALUES ((SELECT id FROM accounts WHERE user_id = ?), ?, ?, ?, ?, ?, 'visa')");
+        $stmt->bind_param("isssii", $user['sub'], $last4, $card_hash, $cvv_hash, $exp_m, $exp_y);
+        $stmt->execute();
+
+        json_response("success", "Virtual card created successfully");
         break;
 
     case 'admin_get_analytics':
