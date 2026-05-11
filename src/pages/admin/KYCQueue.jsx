@@ -64,7 +64,7 @@ const KYCQueue = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
                   {['id_front_url', 'id_back_url', 'selfie_url', 'address_doc_url'].map(field => (
                     s[field] && (
                       <a

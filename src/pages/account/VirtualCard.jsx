@@ -78,7 +78,7 @@ const VirtualCardPage = () => {
         <p className="text-gray-500">Secure online payments anywhere Visa is accepted</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-12 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
         <div className="space-y-6">
           <VirtualCardUI
             card={card}

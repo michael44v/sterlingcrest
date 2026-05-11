@@ -197,6 +197,17 @@ CREATE TABLE IF NOT EXISTS admin_logs (
 ) ENGINE=InnoDB;
 
 -- 14. aml_flags
+-- 14. beneficiaries
+CREATE TABLE IF NOT EXISTS beneficiaries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    account_number VARCHAR(20) NOT NULL,
+    account_name VARCHAR(100) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- 15. aml_flags
 CREATE TABLE IF NOT EXISTS aml_flags (
     id INT AUTO_INCREMENT PRIMARY KEY,
     transaction_id INT NOT NULL,

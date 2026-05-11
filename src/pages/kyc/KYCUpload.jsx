@@ -59,7 +59,7 @@ const KYCUpload = () => {
         <p className="text-gray-500">Complete KYC to unlock full banking features</p>
       </div>
 
-      <div className="flex justify-between mb-8 relative">
+      <div className="flex justify-between mb-8 relative px-4 md:px-0 gap-2">
         <div className="absolute top-1/2 left-0 w-full h-0.5 bg-gray-200 -z-10 -translate-y-1/2"></div>
         {steps.map((s) => (
           <div key={s.id} className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all ${
@@ -108,7 +108,7 @@ const KYCUpload = () => {
               <Button
                 onClick={() => step === 3 ? handleSubmit() : setStep(step + 1)}
                 loading={loading}
-                className="w-full flex-2"
+                className="w-full flex-[2]"
               >
                 {step === 3 ? 'Submit for Review' : 'Next Step'}
               </Button>

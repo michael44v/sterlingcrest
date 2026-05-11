@@ -54,7 +54,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Placeholder for charts as specified in the spec */}
-      <div className="grid md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="bg-white p-8 rounded-2xl border border-chase-border shadow-sm h-64 flex items-center justify-center text-gray-400 italic">
           User Growth Chart (Recharts)
         </div>

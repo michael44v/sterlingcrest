@@ -109,7 +109,7 @@ const AMLQueue = () => {
                 </div>
 
                 {flag.status === 'pending' && (
-                  <div className="flex flex-row md:flex-col gap-2 justify-center">
+                  <div className="flex flex-row md:flex-col gap-2 justify-center w-full md:w-auto">
                     <Button
                       variant="secondary"
                       className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"

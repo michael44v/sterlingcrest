@@ -12,6 +12,7 @@ import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import DashboardHome from './pages/dashboard/DashboardHome';
 import AccountDetails from './pages/account/AccountDetails';
+import Deposit from './pages/account/Deposit';
 import VirtualCard from './pages/account/VirtualCard';
 import SendMoney from './pages/transfer/SendMoney';
 import TransactionHistory from './pages/history/TransactionHistory';
@@ -54,6 +55,7 @@ const App = () => {
           {/* User Protected Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
           <Route path="/account" element={<ProtectedRoute><AccountDetails /></ProtectedRoute>} />
+          <Route path="/deposit" element={<ProtectedRoute><Deposit /></ProtectedRoute>} />
           <Route path="/account/card" element={<ProtectedRoute><VirtualCard /></ProtectedRoute>} />
           <Route path="/transfer/send" element={<ProtectedRoute><SendMoney /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />

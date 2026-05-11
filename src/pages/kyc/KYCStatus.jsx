@@ -56,7 +56,7 @@ const KYCStatus = () => {
           )}
         </div>
 
-        <div className="p-8 grid md:grid-cols-3 gap-6">
+        <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             { tier: 1, label: 'Basic', limit: '$500/day', status: 'Active' },
             { tier: 2, label: 'Verified', limit: '$5,000/day', status: status?.kyc_tier >= 2 ? 'Active' : 'Locked' },

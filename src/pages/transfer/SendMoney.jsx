@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import api from '../../api/axios';
 import { formatUSD } from '../../utils/formatCurrency';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { CheckCircle2, User, ArrowRight } from 'lucide-react';
+import { CheckCircle2, User, ArrowRight, UserPlus } from 'lucide-react';
+import BeneficiaryList from '../../components/transfer/BeneficiaryList';
 
 const SendMoney = () => {
   const [step, setStep] = useState(1);
@@ -17,21 +18,35 @@ const SendMoney = () => {
     pin: ''
   });
 
-  const handleResolve = async () => {
-    if (formData.account_number.length !== 10) return;
+  const handleResolve = async (accNum) => {
+    const num = accNum || formData.account_number;
+    if (num.length !== 10) return;
     setLoading(true);
     try {
-      const response = await api.get(`?action=resolve_account&account_number=${formData.account_number}`);
+      const response = await api.get(`?action=resolve_account&account_number=${num}`);
       if (response.data.status === 'success') {
         setRecipient(response.data.data);
+        if (accNum) setFormData(prev => ({ ...prev, account_number: accNum }));
       } else {
         toast.error(response.data.message);
         setRecipient(null);
       }
-    } catch (error) {
+    } catch (e) {
       toast.error('Could not find account');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveBeneficiary = async () => {
+    try {
+      await api.post('?action=add_beneficiary', {
+        account_number: formData.account_number,
+        account_name: recipient.account_holder_name
+      });
+      toast.success('Beneficiary saved');
+    } catch (e) {
+      toast.error('Failed to save beneficiary');
     }
   };
 
@@ -52,7 +67,7 @@ const SendMoney = () => {
       } else {
         toast.error(response.data.message);
       }
-    } catch (error) {
+    } catch (e) {
       toast.error('Transfer failed');
     } finally {
       setLoading(false);
@@ -68,24 +83,41 @@ const SendMoney = () => {
 
       <div className="bg-white rounded-2xl border border-chase-border shadow-lg p-8">
         {step === 1 && (
+          <div className="space-y-8">
+            <BeneficiaryList onSelect={(acc) => handleResolve(acc)} />
+
           <form onSubmit={handleSubmit} className="space-y-6">
-            <Input
-              label="Recipient Account Number"
-              placeholder="10-digit account number"
-              value={formData.account_number}
-              onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-              onBlur={handleResolve}
-              required
-            />
+            <div className="relative">
+              <Input
+                label="Recipient Account Number"
+                placeholder="10-digit account number"
+                value={formData.account_number}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setFormData({ ...formData, account_number: val });
+                  if (val.length === 10) handleResolve(val);
+                  else if (recipient) setRecipient(null);
+                }}
+                required
+              />
+            </div>
             {recipient && (
               <div className="flex items-center gap-4 p-4 bg-green-50 border border-green-200 rounded-xl">
                 <div className="p-2 bg-green-200 text-green-700 rounded-full">
                   <User size={20} />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-xs text-green-600 uppercase font-bold">Recipient Found</p>
                   <p className="font-bold text-chase-navy">{recipient.account_holder_name}</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={saveBeneficiary}
+                  className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-colors"
+                  title="Save as beneficiary"
+                >
+                  <UserPlus size={20} />
+                </button>
               </div>
             )}
             <Input
@@ -106,6 +138,7 @@ const SendMoney = () => {
               Continue
             </Button>
           </form>
+          </div>
         )}
 
         {step === 2 && (
@@ -140,7 +173,7 @@ const SendMoney = () => {
 
             <div className="flex gap-4">
               <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">Back</Button>
-              <Button type="submit" loading={loading} className="flex-2 w-full">Confirm Transfer</Button>
+              <Button type="submit" loading={loading} className="flex-[2] w-full">Confirm Transfer</Button>
             </div>
           </form>
         )}

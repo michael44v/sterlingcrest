@@ -341,6 +341,48 @@ switch ($action) {
         json_response("success", "Transactions", $rows);
         break;
 
+    case 'get_statement_data':
+        $user = require_auth();
+        $date_from = $_GET['date_from'] ?? '';
+        $date_to = $_GET['date_to'] ?? '';
+
+        if (!$date_from || !$date_to) json_response("error", "Date range required");
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT id, balance FROM accounts WHERE user_id = ?");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $acc = $stmt->get_result()->fetch_assoc();
+
+        $stmt2 = $db->prepare("SELECT created_at as date, narration, reference, type, amount, balance_after FROM transactions
+                               WHERE account_id = ? AND DATE(created_at) BETWEEN ? AND ? ORDER BY created_at ASC");
+        $stmt2->bind_param("iss", $acc['id'], $date_from, $date_to);
+        $stmt2->execute();
+        $res = $stmt2->get_result();
+        $txs = [];
+        $totalCredits = 0;
+        $totalDebits = 0;
+
+        while ($row = $res->fetch_assoc()) {
+            $txs[] = $row;
+            if ($row['type'] === 'credit') $totalCredits += $row['amount'];
+            else $totalDebits += $row['amount'];
+        }
+
+        $openingBalance = (count($txs) > 0) ? ($txs[0]['balance_after'] - ($txs[0]['type'] === 'credit' ? $txs[0]['amount'] : -$txs[0]['amount'])) : $acc['balance'];
+        $closingBalance = (count($txs) > 0) ? end($txs)['balance_after'] : $acc['balance'];
+
+        json_response("success", "Statement data", [
+            "summary" => [
+                "openingBalance" => (float)$openingBalance,
+                "closingBalance" => (float)$closingBalance,
+                "totalCredits" => (float)$totalCredits,
+                "totalDebits" => (float)$totalDebits
+            ],
+            "transactions" => $txs
+        ]);
+        break;
+
     case 'internal_transfer':
         $user = require_auth();
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
@@ -468,6 +510,45 @@ switch ($action) {
         $stmt->bind_param("iissss", $user['sub'], $data['tier_requested'], $data['id_front_url'], $data['id_back_url'], $data['selfie_url'], $data['address_doc_url']);
         $stmt->execute();
         json_response("success", "KYC Submitted");
+        break;
+
+    case 'deposit':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['amount']) || empty($data['method'])) json_response("error", "Amount and method required");
+
+        $db = Database::getInstance()->getConnection();
+        $stmt1 = $db->prepare("SELECT id, balance FROM accounts WHERE user_id = ?");
+        $stmt1->bind_param("i", $user['sub']);
+        $stmt1->execute();
+        $acc = $stmt1->get_result()->fetch_assoc();
+
+        $db->begin_transaction();
+        try {
+            $ref = "DEP" . time() . strtoupper(bin2hex(random_bytes(3)));
+
+            if ($data['method'] === 'card') {
+                $stmt2 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+                $stmt2->bind_param("di", $data['amount'], $acc['id']);
+                $stmt2->execute();
+
+                $bal_after = $acc['balance'] + $data['amount'];
+                $stmt3 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, status) VALUES (?, 'credit', 'deposit', ?, ?, 'Card Deposit', ?, 'completed')");
+                $stmt3->bind_param("idds", $acc['id'], $data['amount'], $bal_after, $ref);
+                $stmt3->execute();
+            } else {
+                $stmt3 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, status) VALUES (?, 'credit', 'deposit', ?, ?, 'Bank Wire Deposit', ?, 'pending')");
+                $bal_after = $acc['balance']; // stays same until confirmed
+                $stmt3->bind_param("idds", $acc['id'], $data['amount'], $bal_after, $ref);
+                $stmt3->execute();
+            }
+
+            $db->commit();
+            json_response("success", "Deposit processed");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Deposit failed");
+        }
         break;
 
     case 'get_fixed_deposits':
@@ -744,6 +825,30 @@ switch ($action) {
         }
 
         json_response("success", "AML Flag resolved");
+        break;
+
+    case 'get_beneficiaries':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM beneficiaries WHERE user_id = ? ORDER BY created_at DESC");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) { $rows[] = $row; }
+        json_response("success", "Beneficiaries", $rows);
+        break;
+
+    case 'add_beneficiary':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['account_number']) || empty($data['account_name'])) json_response("error", "Missing fields");
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("INSERT INTO beneficiaries (user_id, account_number, account_name) VALUES (?, ?, ?)");
+        $stmt->bind_param("iss", $user['sub'], $data['account_number'], $data['account_name']);
+        $stmt->execute();
+        json_response("success", "Beneficiary added");
         break;
 
     case 'logout':
