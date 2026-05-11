@@ -4,7 +4,7 @@ import { formatUSD } from '../../utils/formatCurrency';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { User, ArrowRight, UserPlus } from 'lucide-react';
+import { CheckCircle2, User, ArrowRight, UserPlus } from 'lucide-react';
 import BeneficiaryList from '../../components/transfer/BeneficiaryList';
 
 const SendMoney = () => {
@@ -31,7 +31,7 @@ const SendMoney = () => {
         toast.error(response.data.message);
         setRecipient(null);
       }
-    } catch {
+    } catch (e) {
       toast.error('Could not find account');
     } finally {
       setLoading(false);
@@ -45,13 +45,13 @@ const SendMoney = () => {
         account_name: recipient.account_holder_name
       });
       toast.success('Beneficiary saved');
-    } catch {
+    } catch (e) {
       toast.error('Failed to save beneficiary');
     }
   };
 
-  const handleSubmit = async (ev) => {
-    ev.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     if (step === 1 && recipient) return setStep(2);
 
     setLoading(true);
@@ -67,7 +67,7 @@ const SendMoney = () => {
       } else {
         toast.error(response.data.message);
       }
-    } catch {
+    } catch (e) {
       toast.error('Transfer failed');
     } finally {
       setLoading(false);

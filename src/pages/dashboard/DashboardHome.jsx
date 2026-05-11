@@ -202,14 +202,14 @@ const DashboardHome = () => {
           <div className="grid grid-cols-2 gap-3">
             <StatCard
               label="Received"
-              value={formatUSD(data?.monthly_in ?? 0)}
+              value={formatUSD(data?.total_credit_sum ?? 0)}
               icon={ArrowDownLeft}
               delta="+12.4% vs last month"
               accent="#10b981"
             />
             <StatCard
               label="Spent"
-              value={formatUSD(data?.monthly_out ?? 0)}
+              value={formatUSD(data?.total_debit_sum ?? 0)}
               icon={ArrowUpRight}
               accent="#ef4444"
             />
