@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { formatUSD } from '../../utils/formatCurrency';
+import { formatUSD, formatUSD_S } from '../../utils/formatCurrency';
 import {
   Eye,
   EyeOff,
@@ -202,14 +202,14 @@ const DashboardHome = () => {
           <div className="grid grid-cols-2 gap-3">
             <StatCard
               label="Received"
-              value={formatUSD(data?.total_credit_sum ?? 0)}
+              value={formatUSD_S(data?.total_credit_sum ?? 0)}
               icon={ArrowDownLeft}
               delta="+12.4% vs last month"
               accent="#10b981"
             />
             <StatCard
               label="Spent"
-              value={formatUSD(data?.total_debit_sum ?? 0)}
+              value={formatUSD_S(data?.total_debit_sum ?? 0)}
               icon={ArrowUpRight}
               accent="#ef4444"
             />

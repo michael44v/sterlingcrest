@@ -327,19 +327,84 @@ switch ($action) {
         json_response("success", "Account details", $result);
         break;
 
-    case 'get_transactions':
-        $user = require_auth();
-        $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT * FROM transactions WHERE account_id = (SELECT id FROM accounts WHERE user_id = ?) ORDER BY created_at DESC");
-        $stmt->bind_param("i", $user['sub']);
-        $stmt->execute();
-        $rows = [];
-        $res = $stmt->get_result();
-        while ($row = $res->fetch_assoc()) {
-            $rows[] = $row;
+    
+
+case 'get_transactions':
+    $user = require_auth();
+    $db   = Database::getInstance()->getConnection();
+ 
+    $sql = "
+        SELECT
+            t.id,
+            t.type,
+            t.channel,
+            t.amount,
+            t.fee,
+            t.balance_after,
+            t.narration,
+            t.reference,
+            t.status,
+            t.created_at,
+ 
+            -- Own account (the authenticated user)
+            own_acc.account_number  AS own_account_number,
+            own_usr.full_name       AS own_name,
+ 
+            -- Counterparty (the other side of the transfer, may be NULL for
+            -- deposits, fees, reversals that have no counterparty)
+            cp_acc.account_number   AS counterparty_account_number,
+            cp_usr.full_name        AS counterparty_name
+ 
+        FROM transactions t
+ 
+        JOIN  accounts own_acc ON own_acc.id = t.account_id
+        JOIN  users    own_usr ON own_usr.id = own_acc.user_id
+ 
+        LEFT JOIN accounts cp_acc ON cp_acc.id = t.counterparty_account_id
+        LEFT JOIN users    cp_usr ON cp_usr.id = cp_acc.user_id
+ 
+        WHERE t.account_id = (
+            SELECT id FROM accounts WHERE user_id = ? LIMIT 1
+        )
+ 
+        ORDER BY t.created_at DESC
+    ";
+ 
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param("i", $user['sub']);
+    $stmt->execute();
+    $res = $stmt->get_result();
+ 
+    $rows = [];
+    while ($row = $res->fetch_assoc()) {
+        /*
+         * Normalise direction:
+         *
+         * DEBIT  → logged-in user is the SENDER,    counterparty is RECIPIENT
+         * CREDIT → logged-in user is the RECIPIENT, counterparty is SENDER
+         */
+        if ($row['type'] === 'debit') {
+            $row['sender_name']       = $row['own_name'];
+            $row['sender_account']    = $row['own_account_number'];
+            $row['recipient_name']    = $row['counterparty_name'];
+            $row['recipient_account'] = $row['counterparty_account_number'];
+        } else {
+            $row['sender_name']       = $row['counterparty_name'];
+            $row['sender_account']    = $row['counterparty_account_number'];
+            $row['recipient_name']    = $row['own_name'];
+            $row['recipient_account'] = $row['own_account_number'];
         }
-        json_response("success", "Transactions", $rows);
-        break;
+ 
+        // Strip raw fields — frontend doesn't need them
+        unset($row['own_name'], $row['own_account_number'],
+              $row['counterparty_name'], $row['counterparty_account_number']);
+ 
+        $rows[] = $row;
+    }
+ 
+    json_response("success", "Transactions", $rows);
+    break;
+
 
     case 'get_statement_data':
         $user = require_auth();
@@ -457,11 +522,15 @@ switch ($action) {
             $stmt6->execute();
 
             // Credit Notification for receiver
+              // Credit Notification for receiver
             $notif_title = "Credit Alert: $" . number_format($data['amount'], 2);
-            $notif_msg = "You have received $" . number_format($data['amount'], 2) . " from " . $sender['full_name'];
+            $notif_msg = "You have received $" . number_format($data['amount'], 2) ."to your Savings Accounts";
+
+            // . " from " . $sender['full_name'];
             $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'credit', ?, ?)");
             $stmt_notif->bind_param("iss", $receiver['id'], $notif_title, $notif_msg);
             $stmt_notif->execute();
+
 
             if ($data['amount'] > 1000000) {
                 $reason = "High value transfer: $" . number_format($data['amount'], 2);
@@ -715,14 +784,52 @@ switch ($action) {
         json_response("success", "Profile data", $profile);
         break;
 
+
+
+    case 'get_notifications':
+        $user = require_auth();
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 20");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) { $rows[] = $row; }
+        json_response("success", "Notifications", $rows);
+        break;
+
+    case 'get_notification':
+        $user = require_auth();
+        $id = $_GET['id'] ?? '';
+        if (!$id) json_response("error", "Notification ID required");
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM notifications WHERE id = ? AND user_id = ?");
+        $stmt->bind_param("ii", $id, $user['sub']);
+        $stmt->execute();
+        $res = $stmt->get_result()->fetch_assoc();
+        if ($res) json_response("success", "Notification details", $res);
+        else json_response("error", "Notification not found");
+        break;
+
+    case 'mark_notif_read':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['id'])) json_response("error", "ID required");
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?");
+        $stmt->bind_param("ii", $data['id'], $user['sub']);
+        $stmt->execute();
+        json_response("success", "Marked as read");
+        break;
+
     case 'update_profile':
         $user = require_auth();
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
-        if (empty($data['full_name']) || empty($data['phone'])) json_response("error", "Missing fields");
+        if (empty($_GET['full_name']) || empty($_GET['phone'])) json_response("error", "Missing fields");
 
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("UPDATE users SET full_name = ?, phone = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $data['full_name'], $data['phone'], $user['sub']);
+        $stmt->bind_param("ssi", $_GET['full_name'], $_GET['phone'], $user['sub']);
         $stmt->execute();
         json_response("success", "Profile updated");
         break;

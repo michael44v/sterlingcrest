@@ -58,9 +58,9 @@ const KYCStatus = () => {
 
         <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { tier: 1, label: 'Basic', limit: '$500/day', status: 'Active' },
-            { tier: 2, label: 'Verified', limit: '$5,000/day', status: status?.kyc_tier >= 2 ? 'Active' : 'Locked' },
-            { tier: 3, label: 'Premium', limit: '$50,000/day', status: status?.kyc_tier >= 3 ? 'Active' : 'Locked' },
+            { tier: 1, label: 'Basic', limit: '$1000/day', status: 'Active' },
+            { tier: 2, label: 'Verified', limit: '$250,000/day', status: status?.kyc_tier >= 2 ? 'Active' : 'Locked' },
+            { tier: 3, label: 'Premium', limit: '$1,000,000/day', status: status?.kyc_tier >= 3 ? 'Active' : 'Locked' },
           ].map((t) => (
             <div key={t.tier} className={`p-6 rounded-xl border ${
               status?.kyc_tier >= t.tier ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'
