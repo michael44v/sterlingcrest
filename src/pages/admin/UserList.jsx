@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import { formatUSD } from '../../utils/formatCurrency';
-import { Search, UserCircle, MoreVertical, Send, DollarSign, Ban, CheckCircle } from 'lucide-react';
+import { Search, UserCircle, MoreVertical, Send, DollarSign, Ban, CheckCircle, ArrowUpCircle } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
@@ -13,8 +13,8 @@ const UserList = () => {
 
   // Modals state
   const [activeUser, setActiveUser] = useState(null);
-  const [modalType, setModalType] = useState(null); // 'balance', 'message', 'status'
-  const [formData, setFormData] = useState({ amount: '', type: 'credit', narration: '', title: '', message: '', status: '' });
+  const [modalType, setModalType] = useState(null); // 'balance', 'message', 'status', 'tier'
+  const [formData, setFormData] = useState({ amount: '', type: 'credit', narration: '', title: '', message: '', status: '', tier: '' });
   const [submitting, setSubmitting] = useState(false);
 
   const fetchUsers = async () => {
@@ -77,6 +77,28 @@ const UserList = () => {
       }
     } catch (err) {
       toast.error('Failed to send message');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleUpdateTier = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await api.post('?action=admin_upgrade_tier', {
+        user_id: activeUser.id,
+        tier: formData.tier
+      });
+      if (res.data.status === 'success') {
+        toast.success(res.data.message);
+        setModalType(null);
+        fetchUsers();
+      } else {
+        toast.error(res.data.message);
+      }
+    } catch (err) {
+      toast.error('Failed to update tier');
     } finally {
       setSubmitting(false);
     }
@@ -181,6 +203,12 @@ const UserList = () => {
                         <Send size={18} />
                       </button>
                       <button
+                        onClick={() => { setActiveUser(u); setModalType('tier'); setFormData({ ...formData, tier: u.kyc_tier }) }}
+                        className="p-2 hover:bg-amber-50 text-amber-600 rounded-lg transition-colors" title="Manage Tier"
+                      >
+                        <ArrowUpCircle size={18} />
+                      </button>
+                      <button
                         onClick={() => { setActiveUser(u); setModalType('status'); }}
                         className={`p-2 rounded-lg transition-colors ${u.status === 'active' ? 'hover:bg-red-50 text-red-600' : 'hover:bg-green-50 text-green-600'}`}
                         title={u.status === 'active' ? 'Suspend' : 'Activate'}
@@ -266,6 +294,43 @@ const UserList = () => {
               <div className="flex gap-3 pt-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setModalType(null)}>Cancel</Button>
                 <Button type="submit" className="flex-1" loading={submitting}>Send Notification</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Tier Management Modal */}
+      {modalType === 'tier' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl text-center">
+            <div className="mx-auto w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-4">
+              <ArrowUpCircle size={32} />
+            </div>
+            <h2 className="text-xl font-bold text-chase-navy mb-2">Manage KYC Tier: {activeUser?.full_name}</h2>
+            <p className="text-gray-500 mb-6">Manually adjust the user's KYC verification tier.</p>
+
+            <form onSubmit={handleUpdateTier} className="space-y-4">
+              <div className="grid grid-cols-4 gap-2">
+                {[0, 1, 2, 3].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, tier: t })}
+                    className={`py-3 rounded-xl font-black border-2 transition-all ${
+                      Number(formData.tier) === t
+                      ? 'bg-chase-blue border-chase-blue text-white shadow-lg'
+                      : 'bg-white border-gray-100 text-gray-400 hover:border-gray-200'
+                    }`}
+                  >
+                    T{t}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button variant="secondary" className="flex-1" onClick={() => setModalType(null)}>Cancel</Button>
+                <Button type="submit" className="flex-1" loading={submitting}>Update Tier</Button>
               </div>
             </form>
           </div>
