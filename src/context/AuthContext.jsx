@@ -15,15 +15,17 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
+  const login = async (email, password, pin = null) => {
     try {
-      const response = await api.post('?action=login', { email, password });
+      const response = await api.post('?action=login', { email, password, pin });
       if (response.data.status === 'success') {
         const { access_token, user } = response.data.data;
         localStorage.setItem('access_token', access_token);
         localStorage.setItem('user', JSON.stringify(user));
         setUser(user);
         return { success: true };
+      } else if (response.data.status === 'pin_required') {
+        return { success: false, pin_required: true, message: response.data.message };
       } else {
         return { success: false, message: response.data.message };
       }

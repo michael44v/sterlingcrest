@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     account_id INT NOT NULL,
     type ENUM('credit', 'debit', 'fee', 'reversal') NOT NULL,
-    channel ENUM('internal_transfer', 'deposit', 'card_funding', 'fee', 'reversal') NOT NULL,
+    channel ENUM('internal_transfer', 'deposit', 'card_funding', 'fee', 'reversal', 'adjustment') NOT NULL,
     amount DECIMAL(15, 2) NOT NULL,
     fee DECIMAL(15, 2) DEFAULT 0.00,
     balance_after DECIMAL(15, 2) NOT NULL,

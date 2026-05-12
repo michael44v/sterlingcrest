@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-  baseURL: 'http://localhost:80/backend/northbridge/api.php',
+  baseURL: '/backend/api.php',
   headers: {
     'Content-Type': 'application/json',
   },

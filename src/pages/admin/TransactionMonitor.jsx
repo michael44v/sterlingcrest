@@ -26,7 +26,8 @@ const TransactionMonitor = () => {
 
   const filteredTransactions = transactions.filter(tx =>
     tx.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tx.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tx.sender_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    tx.recipient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     tx.narration?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -61,7 +62,8 @@ const TransactionMonitor = () => {
             <thead>
               <tr className="bg-gray-50 text-chase-navy uppercase text-xs font-black tracking-wider">
                 <th className="px-6 py-4">Reference</th>
-                <th className="px-6 py-4">User</th>
+                <th className="px-6 py-4">Sender</th>
+                <th className="px-6 py-4">Recipient</th>
                 <th className="px-6 py-4">Channel</th>
                 <th className="px-6 py-4">Amount</th>
                 <th className="px-6 py-4">Status</th>
@@ -70,15 +72,19 @@ const TransactionMonitor = () => {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan="6" className="px-6 py-12 text-center text-gray-400 italic">Loading transactions...</td></tr>
+                <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-400 italic">Loading transactions...</td></tr>
               ) : filteredTransactions.length === 0 ? (
-                <tr><td colSpan="6" className="px-6 py-12 text-center text-gray-400 italic">No transactions found.</td></tr>
+                <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-400 italic">No transactions found.</td></tr>
               ) : filteredTransactions.map((tx) => (
                 <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-mono text-xs font-bold text-chase-blue">{tx.reference}</td>
                   <td className="px-6 py-4">
-                    <div className="font-bold text-chase-navy">{tx.user_name}</div>
-                    <div className="text-xs text-gray-500">{tx.account_number}</div>
+                    <div className="font-bold text-chase-navy">{tx.sender_name}</div>
+                    <div className="text-xs text-gray-500">{tx.sender_account}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-chase-navy">{tx.recipient_name}</div>
+                    <div className="text-xs text-gray-500">{tx.recipient_account}</div>
                   </td>
                   <td className="px-6 py-4 capitalize text-sm">{tx.channel.replace('_', ' ')}</td>
                   <td className={`px-6 py-4 font-black ${tx.type === 'debit' ? 'text-red-600' : 'text-green-600'}`}>

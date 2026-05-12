@@ -70,6 +70,8 @@ const Field = ({ label, type = 'text', placeholder, value, onChange, name }) => 
 const Login = () => {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [pin, setPin]           = useState('');
+  const [showPinField, setShowPinField] = useState(false);
   const [loading, setLoading]   = useState(false);
   const { login }               = useAuth();
   const navigate                = useNavigate();
@@ -77,16 +79,21 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const result = await login(email, password);
+    const result = await login(email, password, pin);
     setLoading(false);
 
     if (result.success) {
       toast.success('Login successful');
       navigate('/dashboard');
     } else {
-      toast.error(result.message);
-      if (result.user_id) {
-        navigate('/verify-email', { state: { user_id: result.user_id, email } });
+      if (result.pin_required) {
+        setShowPinField(true);
+        toast(result.message, { icon: '🔐' });
+      } else {
+        toast.error(result.message);
+        if (result.user_id) {
+          navigate('/verify-email', { state: { user_id: result.user_id, email } });
+        }
       }
     }
   };
@@ -165,6 +172,19 @@ const Login = () => {
               value={email} onChange={e => setEmail(e.target.value)} />
             <Field label="Password" type="password" placeholder="••••••••"
               value={password} onChange={e => setPassword(e.target.value)} />
+
+            {showPinField && (
+              <Field
+                label="Transaction PIN"
+                type="password"
+                placeholder="••••"
+                value={pin}
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setPin(val);
+                }}
+              />
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18, marginTop: -4 }}>
               <Link to="/forgot-password" style={{ fontSize: 12, fontWeight: 700, color: '#117ACA', textDecoration: 'none' }}>

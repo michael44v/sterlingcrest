@@ -174,13 +174,22 @@ switch ($action) {
         }
 
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT id, full_name, password_hash, role, status, email_verified_at FROM users WHERE email = ?");
+        $stmt = $db->prepare("SELECT id, full_name, password_hash, pin_hash, role, status, email_verified_at FROM users WHERE email = ?");
         $stmt->bind_param("s", $data['email']);
         $stmt->execute();
         $user = $stmt->get_result()->fetch_assoc();
 
         if (!$user || !Security::verifyData($data['password'], $user['password_hash'])) {
             json_response("error", "Invalid email or password");
+        }
+
+        if (!empty($user['pin_hash'])) {
+            if (empty($data['pin'])) {
+                json_response("pin_required", "Transaction PIN required for login", ["user_id" => $user['id']]);
+            }
+            if (!Security::verifyData($data['pin'], $user['pin_hash'])) {
+                json_response("error", "Invalid Transaction PIN");
+            }
         }
 
       //  if (!$user['email_verified_at']) {
@@ -924,13 +933,29 @@ case 'get_transactions':
         if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
 
         $db = Database::getInstance()->getConnection();
-        $res = $db->query("SELECT t.*, u.full_name as user_name, a.account_number
+        $res = $db->query("SELECT t.*, u.full_name as user_name, a.account_number,
+                                 cp_u.full_name as counterparty_name, cp_a.account_number as counterparty_account_number
                            FROM transactions t
                            JOIN accounts a ON t.account_id = a.id
                            JOIN users u ON a.user_id = u.id
+                           LEFT JOIN accounts cp_a ON t.counterparty_account_id = cp_a.id
+                           LEFT JOIN users cp_u ON cp_a.user_id = cp_u.id
                            ORDER BY t.created_at DESC");
         $txs = [];
-        while ($row = $res->fetch_assoc()) { $txs[] = $row; }
+        while ($row = $res->fetch_assoc()) {
+            if ($row['type'] === 'debit') {
+                $row['sender_name'] = $row['user_name'];
+                $row['sender_account'] = $row['account_number'];
+                $row['recipient_name'] = $row['counterparty_name'] ?? 'System/Other';
+                $row['recipient_account'] = $row['counterparty_account_number'] ?? 'N/A';
+            } else {
+                $row['sender_name'] = $row['counterparty_name'] ?? 'System/Other';
+                $row['sender_account'] = $row['counterparty_account_number'] ?? 'N/A';
+                $row['recipient_name'] = $row['user_name'];
+                $row['recipient_account'] = $row['account_number'];
+            }
+            $txs[] = $row;
+        }
         json_response("success", "Transactions", $txs);
         break;
 
@@ -1008,6 +1033,96 @@ case 'get_transactions':
         }
 
         json_response("success", "AML Flag resolved");
+        break;
+
+    case 'admin_adjust_balance':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id']) || !isset($data['amount']) || empty($data['type'])) {
+            json_response("error", "Missing fields");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            // Get current account info
+            $stmt = $db->prepare("SELECT id, balance FROM accounts WHERE user_id = ?");
+            $stmt->bind_param("i", $data['user_id']);
+            $stmt->execute();
+            $acc = $stmt->get_result()->fetch_assoc();
+
+            if (!$acc) throw new Exception("Account not found");
+
+            $amount = (float)$data['amount'];
+            $new_balance = ($data['type'] === 'credit') ? ($acc['balance'] + $amount) : ($acc['balance'] - $amount);
+
+            if ($new_balance < 0) throw new Exception("Insufficient balance for deduction");
+
+            // Update balance
+            $stmt2 = $db->prepare("UPDATE accounts SET balance = ? WHERE id = ?");
+            $stmt2->bind_param("di", $new_balance, $acc['id']);
+            $stmt2->execute();
+
+            // Record transaction
+            $ref = "ADJ" . time() . strtoupper(bin2hex(random_bytes(3)));
+            $narration = $data['narration'] ?? "Admin Adjustment";
+            $stmt3 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, status) VALUES (?, ?, 'adjustment', ?, ?, ?, ?, 'completed')");
+            $stmt3->bind_param("isddss", $acc['id'], $data['type'], $amount, $new_balance, $narration, $ref);
+            $stmt3->execute();
+
+            $db->commit();
+            json_response("success", "Balance adjusted successfully");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Failed to adjust balance: " . $e->getMessage());
+        }
+        break;
+
+    case 'admin_send_notification':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id']) || empty($data['title']) || empty($data['message'])) {
+            json_response("error", "Missing fields");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'admin_message', ?, ?)");
+        $stmt->bind_param("iss", $data['user_id'], $data['title'], $data['message']);
+
+        if ($stmt->execute()) {
+            json_response("success", "Notification sent successfully");
+        } else {
+            json_response("error", "Failed to send notification");
+        }
+        break;
+
+    case 'admin_update_user_status':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id']) || empty($data['status'])) {
+            json_response("error", "Missing fields");
+        }
+
+        $valid_statuses = ['active', 'suspended', 'frozen', 'closed'];
+        if (!in_array($data['status'], $valid_statuses)) {
+            json_response("error", "Invalid status");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("UPDATE users SET status = ? WHERE id = ?");
+        $stmt->bind_param("si", $data['status'], $data['user_id']);
+
+        if ($stmt->execute()) {
+            json_response("success", "User status updated to " . $data['status']);
+        } else {
+            json_response("error", "Failed to update user status");
+        }
         break;
 
     case 'get_beneficiaries':
