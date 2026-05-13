@@ -271,6 +271,14 @@ const SendMoney = () => {
             )}
 
             {transferType === 'external' && (
+
+             <Input
+                    label="BANK Name"
+                    placeholder="Enter your bank name"
+                    value={formData.manual_account_name}
+                  //  onChange={(e) => setFormData({...formData, manual_account_name: e.target.value})}
+                    required
+                />
                 <Input
                     label="Account Name"
                     placeholder="Full name on the account"
