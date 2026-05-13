@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../api/axios';
 import { formatUSD } from '../../utils/formatCurrency';
 import Button from '../../components/ui/Button';
@@ -10,8 +10,10 @@ import BeneficiaryList from '../../components/transfer/BeneficiaryList';
 
 const SendMoney = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const typeParam = searchParams.get('type') || 'internal';
   const [step, setStep] = useState(1);
-  const [transferType, setTransferType] = useState('internal'); // 'internal' or 'external'
+  const [transferType, setTransferType] = useState(typeParam); // 'internal' or 'external'
   const [loading, setLoading] = useState(false);
   const [recipient, setRecipient] = useState(null);
   const [userTier, setUserTier] = useState(null);
@@ -56,6 +58,23 @@ const SendMoney = () => {
     fetchTier();
     fetchBanks();
   }, []);
+
+  useEffect(() => {
+    setTransferType(typeParam);
+    setStep(1);
+    setRecipient(null);
+    setFormData(prev => ({
+        ...prev,
+        account_number: '',
+        amount: '',
+        narration: '',
+        pin: '',
+        confirm_name: '',
+        bank_id: '',
+        manual_bank_name: '',
+        manual_account_name: ''
+    }));
+  }, [typeParam]);
 
   const handleResolve = async (accNum) => {
     const num = accNum || formData.account_number;
@@ -167,35 +186,10 @@ const SendMoney = () => {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-chase-navy">Send Money</h1>
+        <h1 className="text-3xl font-bold text-chase-navy">
+          {transferType === 'external' ? 'E Transfer' : 'Send Money'}
+        </h1>
         <p className="text-gray-500">Transfer funds securely</p>
-      </div>
-
-      <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
-          <button 
-            onClick={() => {
-                setTransferType('internal');
-                setStep(1);
-                setRecipient(null);
-                setFormData({...formData, account_number: ''});
-            }}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${transferType === 'internal' ? 'bg-white text-chase-blue shadow-sm' : 'text-gray-500 hover:text-chase-navy'}`}
-          >
-              <Building2 size={20} />
-              Internal Transfer
-          </button>
-          <button 
-            onClick={() => {
-                setTransferType('external');
-                setStep(1);
-                setRecipient(null);
-                setFormData({...formData, account_number: ''});
-            }}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${transferType === 'external' ? 'bg-white text-chase-blue shadow-sm' : 'text-gray-500 hover:text-chase-navy'}`}
-          >
-              <Globe size={20} />
-              External Bank
-          </button>
       </div>
 
       <div className="bg-white rounded-2xl border border-chase-border shadow-lg p-8">
