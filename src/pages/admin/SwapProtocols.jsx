@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axios';
-import { Search, UserCircle, CheckCircle, RefreshCcw, Shield } from 'lucide-react';
+import { Search, UserCircle, CheckCircle, RefreshCcw, Shield, Globe, Building2 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 
@@ -29,7 +29,7 @@ const SwapProtocols = () => {
   }, []);
 
   const handleComplete = async (id) => {
-    if (!window.confirm('Are you sure you want to complete this protocol and upgrade the user?')) return;
+    if (!window.confirm('Are you sure you want to complete this protocol?')) return;
 
     setSubmitting(true);
     try {
@@ -63,7 +63,7 @@ const SwapProtocols = () => {
             </div>
             <div>
                 <h1 className="text-2xl font-bold text-chase-navy">Swap Protocols</h1>
-                <p className="text-sm text-gray-500">Manage user account upgrade requests</p>
+                <p className="text-sm text-gray-500">Manage user account upgrade and external transfer requests</p>
             </div>
         </div>
         <div className="relative w-full md:w-80">
@@ -84,7 +84,7 @@ const SwapProtocols = () => {
             <thead className="bg-gray-50 border-b border-chase-border">
               <tr className="text-xs font-bold text-gray-500 uppercase tracking-wider">
                 <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Current Tier</th>
+                <th className="px-6 py-4">Type</th>
                 <th className="px-6 py-4">Requested At</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4 text-right">Actions</th>
@@ -112,9 +112,14 @@ const SwapProtocols = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-chase-light text-chase-blue">
-                        Tier {p.kyc_tier}
-                      </span>
+                      <div className="flex items-center gap-2">
+                          {p.type === 'external' ? (
+                              <Globe size={16} className="text-chase-blue" />
+                          ) : (
+                              <Building2 size={16} className="text-chase-blue" />
+                          )}
+                          <span className="font-bold text-chase-navy capitalize">{p.type}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {new Date(p.created_at).toLocaleString()}
@@ -134,7 +139,7 @@ const SwapProtocols = () => {
                           className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors ml-auto text-sm font-bold shadow-sm"
                         >
                           <CheckCircle size={16} />
-                          Approve & Upgrade
+                          Approve
                         </button>
                       )}
                     </td>

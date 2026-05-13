@@ -219,3 +219,14 @@ CREATE TABLE IF NOT EXISTS aml_flags (
     FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE,
     FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
+
+-- 16. swap_protocols
+CREATE TABLE IF NOT EXISTS swap_protocols (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type ENUM('internal', 'external') DEFAULT 'internal',
+    status ENUM('pending', 'completed') DEFAULT 'pending',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;

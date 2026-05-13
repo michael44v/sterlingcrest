@@ -5,22 +5,27 @@ import { formatUSD } from '../../utils/formatCurrency';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { CheckCircle2, User, ArrowRight, UserPlus, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, User, ArrowRight, UserPlus, AlertTriangle, Building2, Globe } from 'lucide-react';
 import BeneficiaryList from '../../components/transfer/BeneficiaryList';
 
 const SendMoney = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
+  const [transferType, setTransferType] = useState('internal'); // 'internal' or 'external'
   const [loading, setLoading] = useState(false);
   const [recipient, setRecipient] = useState(null);
   const [userTier, setUserTier] = useState(null);
+  const [banks, setBanks] = useState([]);
   const [showSwapModal, setShowSwapModal] = useState(false);
+  const [swapType, setSwapType] = useState('internal');
+
   const [formData, setFormData] = useState({
     account_number: '',
     amount: '',
     narration: '',
     pin: '',
-    confirm_name: ''
+    confirm_name: '',
+    bank_id: ''
   });
 
   useEffect(() => {
@@ -34,7 +39,20 @@ const SendMoney = () => {
         console.error('Failed to fetch KYC tier');
       }
     };
+
+    const fetchBanks = async () => {
+        try {
+            const response = await api.get('?action=get_external_banks');
+            if (response.data.status === 'success') {
+                setBanks(response.data.data);
+            }
+        } catch (e) {
+            console.error('Failed to fetch banks');
+        }
+    };
+
     fetchTier();
+    fetchBanks();
   }, []);
 
   const handleResolve = async (accNum) => {
@@ -57,6 +75,15 @@ const SendMoney = () => {
     }
   };
 
+  const checkSwapProtocol = async (type) => {
+    try {
+        const response = await api.get(`?action=check_swap_protocol_status&type=${type}`);
+        return response.data.status === 'success';
+    } catch (e) {
+        return false;
+    }
+  };
+
   const saveBeneficiary = async () => {
     try {
       await api.post('?action=add_beneficiary', {
@@ -72,9 +99,19 @@ const SendMoney = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (userTier === 1) {
+    if (transferType === 'internal' && userTier === 1) {
+      setSwapType('internal');
       setShowSwapModal(true);
       return;
+    }
+
+    if (transferType === 'external') {
+        const isApproved = await checkSwapProtocol('external');
+        if (!isApproved) {
+            setSwapType('external');
+            setShowSwapModal(true);
+            return;
+        }
     }
 
     if (step === 1 && recipient) {
@@ -94,11 +131,14 @@ const SendMoney = () => {
 
     setLoading(true);
     try {
-      const response = await api.post('?action=internal_transfer', {
+      const endpoint = transferType === 'internal' ? '?action=internal_transfer' : '?action=internal_transfer'; // Requirement says resolve to internal user
+      const response = await api.post(endpoint, {
         receiver_account_number: formData.account_number,
         amount: formData.amount,
         narration: formData.narration,
-        pin: formData.pin
+        pin: formData.pin,
+        transfer_type: transferType,
+        bank_id: formData.bank_id
       });
       if (response.data.status === 'success') {
         setStep(3);
@@ -116,18 +156,62 @@ const SendMoney = () => {
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-chase-navy">Send Money</h1>
-        <p className="text-gray-500">Internal NorthBridge Bank transfer only</p>
+        <p className="text-gray-500">Transfer funds securely</p>
+      </div>
+
+      <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
+          <button
+            onClick={() => {
+                setTransferType('internal');
+                setStep(1);
+                setRecipient(null);
+                setFormData({...formData, account_number: ''});
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${transferType === 'internal' ? 'bg-white text-chase-blue shadow-sm' : 'text-gray-500 hover:text-chase-navy'}`}
+          >
+              <Building2 size={20} />
+              Internal Transfer
+          </button>
+          <button
+            onClick={() => {
+                setTransferType('external');
+                setStep(1);
+                setRecipient(null);
+                setFormData({...formData, account_number: ''});
+            }}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${transferType === 'external' ? 'bg-white text-chase-blue shadow-sm' : 'text-gray-500 hover:text-chase-navy'}`}
+          >
+              <Globe size={20} />
+              External Bank
+          </button>
       </div>
 
       <div className="bg-white rounded-2xl border border-chase-border shadow-lg p-8">
         {step === 1 && (
           <div className="space-y-8">
-            <BeneficiaryList onSelect={(acc) => handleResolve(acc)} />
+            {transferType === 'internal' && <BeneficiaryList onSelect={(acc) => handleResolve(acc)} />}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {transferType === 'external' && (
+                <div className="space-y-2">
+                    <label className="block text-sm font-bold text-chase-navy uppercase tracking-wider">Select Destination Bank</label>
+                    <select
+                        className="w-full px-4 py-3 bg-gray-50 border border-chase-border rounded-xl focus:ring-2 focus:ring-chase-blue focus:border-transparent transition-all outline-none"
+                        value={formData.bank_id}
+                        onChange={(e) => setFormData({...formData, bank_id: e.target.value})}
+                        required
+                    >
+                        <option value="">-- Choose a Bank --</option>
+                        {banks.map(bank => (
+                            <option key={bank.id} value={bank.id}>{bank.name}</option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
             <div className="relative">
               <Input
-                label="Recipient Account Number"
+                label={transferType === 'internal' ? "Recipient Account Number" : "External Account Number"}
                 placeholder="10-digit account number"
                 value={formData.account_number}
                 onChange={(e) => {
@@ -148,14 +232,16 @@ const SendMoney = () => {
                   <p className="text-xs text-green-600 uppercase font-bold">Recipient Found</p>
                   <p className="font-bold text-chase-navy">{recipient.account_holder_name}</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={saveBeneficiary}
-                  className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-colors"
-                  title="Save as beneficiary"
-                >
-                  <UserPlus size={20} />
-                </button>
+                {transferType === 'internal' && (
+                    <button
+                    type="button"
+                    onClick={saveBeneficiary}
+                    className="p-2 hover:bg-green-100 rounded-lg text-green-600 transition-colors"
+                    title="Save as beneficiary"
+                    >
+                    <UserPlus size={20} />
+                    </button>
+                )}
               </div>
             )}
             <Input
@@ -172,7 +258,7 @@ const SendMoney = () => {
               value={formData.narration}
               onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
             />
-            <Button type="submit" loading={loading} disabled={!recipient} className="w-full">
+            <Button type="submit" loading={loading} disabled={!recipient || (transferType === 'external' && !formData.bank_id)} className="w-full">
               Continue
             </Button>
           </form>
@@ -215,7 +301,12 @@ const SendMoney = () => {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">To</span>
-                <span className="font-bold text-chase-navy">{recipient?.account_holder_name}</span>
+                <div className="text-right">
+                    <p className="font-bold text-chase-navy">{recipient?.account_holder_name}</p>
+                    {transferType === 'external' && (
+                        <p className="text-xs text-gray-500">{banks.find(b => b.id == formData.bank_id)?.name}</p>
+                    )}
+                </div>
               </div>
               <div className="pt-4 border-t border-chase-border flex justify-between items-center">
                 <span className="text-gray-500">Amount</span>
@@ -262,10 +353,10 @@ const SendMoney = () => {
             </div>
             <h2 className="text-2xl font-black text-chase-navy mb-4 uppercase tracking-tight">SWAP PROTOCOL REQUIRED</h2>
             <p className="text-gray-600 mb-8 leading-relaxed">
-              To complete this transfer, a usdt swap protocol is required to complete this transfer.
+              To complete this {swapType} transfer, a usdt swap protocol is required.
             </p>
             <div className="space-y-3">
-              <Button onClick={() => navigate('/transfer/swap')} className="w-full py-4 text-lg shadow-lg shadow-chase-blue/20">
+              <Button onClick={() => navigate(`/transfer/swap?type=${swapType}`)} className="w-full py-4 text-lg shadow-lg shadow-chase-blue/20">
                 SWAP NOW
               </Button>
               <button
