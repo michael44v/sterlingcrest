@@ -310,14 +310,12 @@ switch ($action) {
         if (empty($account_number)) {
             json_response("error", "Account number required");
         }
-        
-        
 
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("SELECT u.full_name as account_holder_name, a.account_number, a.kyc_tier, a.status
                               FROM accounts a JOIN users u ON a.user_id = u.id
-                              WHERE a.status = 'active'");
-       // $stmt->bind_param("s", $account_number);
+                              WHERE a.account_number = ? AND a.status = 'active'");
+        $stmt->bind_param("s", $account_number);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
 
