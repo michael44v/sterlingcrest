@@ -466,6 +466,7 @@ case 'get_transactions':
             json_response("error", "Missing transfer details");
         }
 
+        $transfer_type = $data['transfer_type'] ?? 'internal';
         $db = Database::getInstance()->getConnection();
 
         $stmt = $db->prepare("SELECT pin_hash FROM users WHERE id = ?");
@@ -486,8 +487,11 @@ case 'get_transactions':
         $stmt2->execute();
         $receiver = $stmt2->get_result()->fetch_assoc();
 
-        if (!$receiver) json_response("error", "Receiver account not found");
-        if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
+        if ($transfer_type === 'internal') {
+            if (!$receiver) json_response("error", "Receiver account not found");
+            if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
+        }
+
         if ($sender['balance'] < $data['amount']) json_response("error", "Insufficient balance");
 
         // Tiered Limits: Tier 1 ($0), Tier 2 ($5,000), Tier 3 ($50,000)
@@ -516,21 +520,39 @@ case 'get_transactions':
             $stmt3->bind_param("di", $data['amount'], $sender['id']);
             $stmt3->execute();
 
-            $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-            $stmt4->bind_param("di", $data['amount'], $receiver['id']);
-            $stmt4->execute();
-
             $bal_after_s = $sender['balance'] - $data['amount'];
-            $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'debit', 'internal_transfer', ?, ?, ?, ?, ?)");
-            $stmt5->bind_param("iddssi", $sender['id'], $data['amount'], $bal_after_s, $data['narration'], $ref, $receiver['id']);
+            $channel = ($transfer_type === 'external') ? 'external_transfer' : 'internal_transfer';
+
+            $external_bank_name = null;
+            if ($transfer_type === 'external') {
+                if ($data['bank_id'] === 'other') {
+                    $external_bank_name = $data['manual_bank_name'];
+                } else {
+                    $banks = [
+                        1 => "JPMorgan Chase", 2 => "Bank of America", 3 => "Citigroup",
+                        4 => "Wells Fargo", 5 => "Goldman Sachs", 6 => "HSBC Holdings",
+                        7 => "Barclays", 8 => "Deutsche Bank", 9 => "BNP Paribas", 10 => "Santander"
+                    ];
+                    $external_bank_name = $banks[$data['bank_id']] ?? 'Unknown Bank';
+                }
+            }
+
+            $receiver_id = $receiver['id'] ?? null;
+            $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id, external_bank_name, external_account_name) VALUES (?, 'debit', ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt5->bind_param("isddsssis", $sender['id'], $channel, $data['amount'], $bal_after_s, $data['narration'], $ref, $receiver_id, $external_bank_name, $data['manual_account_name']);
             $stmt5->execute();
             $sender_tx_id = $db->insert_id;
 
-            $bal_after_r = $receiver['balance'] + $data['amount'];
-            $ref_c = $ref . "_C";
-            $stmt6 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'credit', 'internal_transfer', ?, ?, ?, ?, ?)");
-            $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
-            $stmt6->execute();
+            if ($receiver) {
+                $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+                $stmt4->bind_param("di", $data['amount'], $receiver['id']);
+                $stmt4->execute();
+
+                $bal_after_r = $receiver['balance'] + $data['amount'];
+                $ref_c = $ref . "_C";
+                $stmt6 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'credit', 'internal_transfer', ?, ?, ?, ?, ?)");
+                $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
+                $stmt6->execute();
 
             // Credit Notification for receiver
               // Credit Notification for receiver
