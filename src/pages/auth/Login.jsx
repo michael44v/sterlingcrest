@@ -168,15 +168,16 @@ const Login = () => {
           </p>
 
           <form onSubmit={handleSubmit}>
-            <Field label="Email Address" type="email" placeholder="name@example.com"
+            <Field label="Email Address" type="email" name="email" placeholder="name@example.com"
               value={email} onChange={e => setEmail(e.target.value)} />
-            <Field label="Password" type="password" placeholder="••••••••"
+            <Field label="Password" type="password" name="password" placeholder="••••••••"
               value={password} onChange={e => setPassword(e.target.value)} />
 
             {showPinField && (
               <Field
                 label="Transaction PIN"
                 type="password"
+                name="pin"
                 placeholder="••••"
                 value={pin}
                 onChange={e => {
