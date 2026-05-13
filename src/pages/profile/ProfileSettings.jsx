@@ -3,7 +3,8 @@ import axios from '../../api/axios';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { User, Mail, Phone, Shield, Save } from 'lucide-react';
+import { User, Mail, Phone, Shield, Save, Globe } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const ProfileSettings = () => {
   const [profile, setProfile] = useState({
@@ -119,6 +120,27 @@ const ProfileSettings = () => {
               <Button variant="secondary" onClick={() => window.location.href='/profile/pin'}>
                 Change PIN
               </Button>
+            </div>
+          </section>
+
+          <section className="bg-white p-6 rounded-2xl border border-chase-border shadow-sm hidden md:block">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-chase-light rounded-lg text-chase-blue">
+                <Globe size={20} />
+              </div>
+              <h2 className="text-xl font-bold text-chase-navy">E Transfer</h2>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-xl bg-gray-50 border border-gray-200">
+              <div>
+                <h4 className="font-bold text-chase-navy">External Bank Transfer</h4>
+                <p className="text-sm text-gray-500">Send money to other banks worldwide.</p>
+              </div>
+              <Link to="/transfer/send?type=external">
+                <Button variant="secondary">
+                  Start Transfer
+                </Button>
+              </Link>
             </div>
           </section>
         </div>
