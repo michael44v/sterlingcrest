@@ -20,7 +20,7 @@ const Sidebar = ({ open, onClose }) => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Send Money', path: '/transfer/send', icon: SendHorizontal },
-    { name: 'Fund Account', path: '/deposit', icon: Download },
+    { name: 'Deposit', path: '/deposit', icon: Download },
     { name: 'Savings', path: '/savings', icon: PiggyBank },
     { name: 'History', path: '/history', icon: History },
     { name: 'Account', path: '/account', icon: CreditCard },

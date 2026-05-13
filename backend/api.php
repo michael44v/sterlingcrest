@@ -1161,20 +1161,69 @@ case 'get_transactions':
         json_response("success", "Swap protocol initiated");
         break;
 
+    case 'upload_swap_receipt':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['receipt_url'])) json_response("error", "Receipt URL required");
+
+        $db = Database::getInstance()->getConnection();
+
+        // Find existing pending swap protocol
+        $stmt = $db->prepare("SELECT id, uploaded_at, attempt_count FROM swap_protocols WHERE user_id = ? AND status = 'pending' ORDER BY created_at DESC LIMIT 1");
+        $stmt->bind_param("i", $user['sub']);
+        $stmt->execute();
+        $proto = $stmt->get_result()->fetch_assoc();
+
+        if (!$proto) {
+            $stmt = $db->prepare("INSERT INTO swap_protocols (user_id, type, status, receipt_url, uploaded_at, attempt_count) VALUES (?, 'internal', 'pending', ?, NOW(), 1)");
+            $stmt->bind_param("is", $user['sub'], $data['receipt_url']);
+            $stmt->execute();
+        } else {
+            $uploaded = strtotime($proto['uploaded_at']);
+            $attempt_count = $proto['attempt_count'];
+            if ($proto['uploaded_at'] && (time() - $uploaded > (5 * 3600))) {
+                $attempt_count++;
+            }
+            $stmt = $db->prepare("UPDATE swap_protocols SET receipt_url = ?, uploaded_at = NOW(), attempt_count = ? WHERE id = ?");
+            $stmt->bind_param("sii", $data['receipt_url'], $attempt_count, $proto['id']);
+            $stmt->execute();
+        }
+
+        json_response("success", "Receipt uploaded successfully");
+        break;
+
     case 'check_swap_protocol_status':
         $user = require_auth();
         $type = $_GET['type'] ?? 'internal';
 
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT status FROM swap_protocols WHERE user_id = ? AND type = ? AND status = 'completed' LIMIT 1");
+        $stmt = $db->prepare("SELECT status, receipt_url, uploaded_at, created_at, attempt_count FROM swap_protocols WHERE user_id = ? AND type = ? ORDER BY created_at DESC LIMIT 1");
         $stmt->bind_param("is", $user['sub'], $type);
         $stmt->execute();
         $res = $stmt->get_result()->fetch_assoc();
 
         if ($res) {
-            json_response("success", "Swap protocol approved", ["status" => "completed"]);
+            $is_expired = false;
+            if ($res['status'] === 'pending' && $res['uploaded_at']) {
+                $uploaded = strtotime($res['uploaded_at']);
+                if (time() - $uploaded > (5 * 3600)) {
+                    $is_expired = true;
+                }
+            }
+
+            if ($res['status'] === 'completed') {
+                json_response("success", "Swap protocol approved", ["status" => "completed"]);
+            } else {
+                json_response("error", "Swap protocol pending", [
+                    "status" => "pending",
+                    "has_receipt" => !empty($res['receipt_url']),
+                    "is_expired" => $is_expired,
+                    "uploaded_at" => $res['uploaded_at'],
+                    "attempt_count" => (int)$res['attempt_count']
+                ]);
+            }
         } else {
-            json_response("error", "Swap protocol pending or not found", ["status" => "pending"]);
+            json_response("error", "Swap protocol not found", ["status" => "not_found"]);
         }
         break;
 
