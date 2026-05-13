@@ -310,12 +310,14 @@ switch ($action) {
         if (empty($account_number)) {
             json_response("error", "Account number required");
         }
+        
+        
 
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("SELECT u.full_name as account_holder_name, a.account_number, a.kyc_tier, a.status
                               FROM accounts a JOIN users u ON a.user_id = u.id
-                              WHERE a.account_number = ? AND a.status = 'active'");
-        $stmt->bind_param("s", $account_number);
+                              WHERE a.status = 'active'");
+       // $stmt->bind_param("s", $account_number);
         $stmt->execute();
         $result = $stmt->get_result()->fetch_assoc();
 
@@ -1231,18 +1233,113 @@ case 'get_transactions':
         break;
 
     case 'get_external_banks':
-        $banks = [
-            ["id" => 1, "name" => "JPMorgan Chase"],
-            ["id" => 2, "name" => "Bank of America"],
-            ["id" => 3, "name" => "Citigroup"],
-            ["id" => 4, "name" => "Wells Fargo"],
-            ["id" => 5, "name" => "Goldman Sachs"],
-            ["id" => 6, "name" => "HSBC Holdings"],
-            ["id" => 7, "name" => "Barclays"],
-            ["id" => 8, "name" => "Deutsche Bank"],
-            ["id" => 9, "name" => "BNP Paribas"],
-            ["id" => 10, "name" => "Santander"]
-        ];
+       $banks = [
+    ["id" => 1, "name" => "JPMorgan Chase"],
+    ["id" => 2, "name" => "Bank of America"],
+    ["id" => 3, "name" => "Citigroup"],
+    ["id" => 4, "name" => "Wells Fargo"],
+    ["id" => 5, "name" => "Goldman Sachs"],
+    ["id" => 6, "name" => "HSBC Holdings"],
+    ["id" => 7, "name" => "Barclays"],
+    ["id" => 8, "name" => "Deutsche Bank"],
+    ["id" => 9, "name" => "BNP Paribas"],
+    ["id" => 10, "name" => "Santander"],
+    ["id" => 11, "name" => "Morgan Stanley"],
+    ["id" => 12, "name" => "UBS Group"],
+    ["id" => 13, "name" => "Credit Suisse"],
+    ["id" => 14, "name" => "Industrial and Commercial Bank of China (ICBC)"],
+    ["id" => 15, "name" => "China Construction Bank"],
+    ["id" => 16, "name" => "Agricultural Bank of China"],
+    ["id" => 17, "name" => "Bank of China"],
+    ["id" => 18, "name" => "Mitsubishi UFJ Financial Group"],
+    ["id" => 19, "name" => "Sumitomo Mitsui Financial Group"],
+    ["id" => 20, "name" => "Mizuho Financial Group"],
+    ["id" => 21, "name" => "Royal Bank of Canada"],
+    ["id" => 22, "name" => "Toronto-Dominion Bank"],
+    ["id" => 23, "name" => "Bank of Nova Scotia"],
+    ["id" => 24, "name" => "Bank of Montreal"],
+    ["id" => 25, "name" => "Canadian Imperial Bank of Commerce"],
+    ["id" => 26, "name" => "Commonwealth Bank of Australia"],
+    ["id" => 27, "name" => "Westpac Banking Corp"],
+    ["id" => 28, "name" => "Australia & New Zealand Banking Group"],
+    ["id" => 29, "name" => "National Australia Bank"],
+    ["id" => 30, "name" => "Standard Chartered"],
+    ["id" => 31, "name" => "Société Générale"],
+    ["id" => 32, "name" => "Crédit Agricole"],
+    ["id" => 33, "name" => "ING Group"],
+    ["id" => 34, "name" => "UniCredit"],
+    ["id" => 35, "name" => "Intesa Sanpaolo"],
+    ["id" => 36, "name" => "Banco Bilbao Vizcaya Argentaria (BBVA)"],
+    ["id" => 37, "name" => "Lloyds Banking Group"],
+    ["id" => 38, "name" => "NatWest Group"],
+    ["id" => 39, "name" => "Nordea Bank"],
+    ["id" => 40, "name" => "DBS Bank"],
+    ["id" => 41, "name" => "OCBC Bank"],
+    ["id" => 42, "name" => "United Overseas Bank (UOB)"],
+    ["id" => 43, "name" => "Qatar National Bank"],
+    ["id" => 44, "name" => "First Abu Dhabi Bank"],
+    ["id" => 45, "name" => "Emirates NBD"],
+    ["id" => 46, "name" => "Standard Bank Group"],
+    ["id" => 47, "name" => "FirstRand Bank"],
+    ["id" => 48, "name" => "Absa Group"],
+    ["id" => 49, "name" => "Nedbank Group"],
+    ["id" => 50, "name" => "Investec"],
+    ["id" => 51, "name" => "Access Bank"],
+    ["id" => 52, "name" => "Zenith Bank"],
+    ["id" => 53, "name" => "United Bank for Africa (UBA)"],
+    ["id" => 54, "name" => "Guaranty Trust Bank (GTBank)"],
+    ["id" => 55, "name" => "First Bank of Nigeria"],
+    ["id" => 56, "name" => "State Bank of India"],
+    ["id" => 57, "name" => "HDFC Bank"],
+    ["id" => 58, "name" => "ICICI Bank"],
+    ["id" => 59, "name" => "Axis Bank"],
+    ["id" => 60, "name" => "Kotak Mahindra Bank"],
+    ["id" => 61, "name" => "Itaú Unibanco"],
+    ["id" => 62, "name" => "Banco Bradesco"],
+    ["id" => 63, "name" => "Banco do Brasil"],
+    ["id" => 64, "name" => "Sberbank"],
+    ["id" => 65, "name" => "VTB Bank"],
+    ["id" => 66, "name" => "Kasikornbank"],
+    ["id" => 67, "name" => "Siam Commercial Bank"],
+    ["id" => 68, "name" => "Malayan Banking Berhad (Maybank)"],
+    ["id" => 69, "name" => "CIMB Group"],
+    ["id" => 70, "name" => "Public Bank Berhad"],
+    ["id" => 71, "name" => "National Bank of Kuwait"],
+    ["id" => 72, "name" => "Riyad Bank"],
+    ["id" => 73, "name" => "Al Rajhi Bank"],
+    ["id" => 74, "name" => "Samba Financial Group"],
+    ["id" => 75, "name" => "Commerzbank"],
+    ["id" => 76, "name" => "Danske Bank"],
+    ["id" => 77, "name" => "Skandinaviska Enskilda Banken (SEB)"],
+    ["id" => 78, "name" => "Svenska Handelsbanken"],
+    ["id" => 79, "name" => "Swedbank"],
+    ["id" => 80, "name" => "Erste Group"],
+    ["id" => 81, "name" => "Raiffeisen Bank International"],
+    ["id" => 82, "name" => "KBC Group"],
+    ["id" => 83, "name" => "Belfius"],
+    ["id" => 84, "name" => "Rabobank"],
+    ["id" => 85, "name" => "ABN AMRO"],
+    ["id" => 86, "name" => "Cooperatieve Rabobank"],
+    ["id" => 87, "name" => "PKO Bank Polski"],
+    ["id" => 88, "name" => "Bank Pekao"],
+    ["id" => 89, "name" => "OTP Bank"],
+    ["id" => 90, "name" => "Alpha Bank"],
+    ["id" => 91, "name" => "Eurobank Ergasias"],
+    ["id" => 92, "name" => "National Bank of Greece"],
+    ["id" => 93, "name" => "Piraeus Bank"],
+    ["id" => 94, "name" => "Bank of Ireland"],
+    ["id" => 95, "name" => "Allied Irish Banks"],
+    ["id" => 96, "name" => "Bank of Cyprus"],
+    ["id" => 97, "name" => "Hellenic Bank"],
+    ["id" => 98, "name" => "Banco de Sabadell"],
+    ["id" => 99, "name" => "Bankinter"],
+    ["id" => 100, "name" => "CaixaBank"],
+    ["id" => 101, "name" => "Charles Schwab"],
+    ["id" => 102, "name" => "Capital One"],
+    ["id" => 103, "name" => "PNC Financial Services"],
+    ["id" => 104, "name" => "US Bancorp"],
+    ["id" => 105, "name" => "Truist Financial"]
+];
         json_response("success", "Banks fetched", $banks);
         break;
 
