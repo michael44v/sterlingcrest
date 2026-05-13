@@ -95,10 +95,16 @@ const SendMoney = () => {
             toast.error(response.data.message);
         }
         setRecipient(null);
+        if (transferType === 'external' && formData.bank_id && formData.bank_id !== 'other') {
+            setFormData(prev => ({ ...prev, manual_account_name: '' }));
+        }
       }
     } catch (e) {
         if (transferType === 'internal') {
             toast.error('Could not find account');
+        }
+        if (transferType === 'external' && formData.bank_id && formData.bank_id !== 'other') {
+            setFormData(prev => ({ ...prev, manual_account_name: '' }));
         }
     } finally {
       setLoading(false);
@@ -271,6 +277,7 @@ const SendMoney = () => {
                     value={formData.manual_account_name}
                     onChange={(e) => setFormData({...formData, manual_account_name: e.target.value})}
                     required
+                    readOnly={formData.bank_id && formData.bank_id !== 'other'}
                 />
             )}
 
