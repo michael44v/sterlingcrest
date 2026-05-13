@@ -80,7 +80,8 @@ const VerifyEmail = () => {
               <ArrowLeft size={16} className="mr-2" /> Back to registration
             </Link>
             <h1 className="text-4xl font-black tracking-tight">Security Verification</h1>
-            <p className="text-gray-500 mt-2">Enter the authorization code sent to your email to activate your USD account.</p>
+            <p className="text-gray-500 mt-2">Enter the authorization code Below to confirm you are not a Robot.</p>
+            <code><h2><del>597444</del></h2></code>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
@@ -118,12 +119,7 @@ const VerifyEmail = () => {
 
             <div className="text-center pt-4">
               <p className="text-gray-500 mb-4 font-medium">Didn't receive the code?</p>
-              <button
-                type="button"
-                onClick={resendOtp}
-                className="inline-flex items-center gap-2 px-6 py-2 border-2 border-chase-border rounded-full text-chase-navy font-bold hover:bg-white hover:border-chase-blue transition-all"
-              >
-                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> Resend Code
+             
               </button>
             </div>
           </form>
