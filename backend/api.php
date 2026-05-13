@@ -466,7 +466,6 @@ case 'get_transactions':
             json_response("error", "Missing transfer details");
         }
 
-        $transfer_type = $data['transfer_type'] ?? 'internal';
         $db = Database::getInstance()->getConnection();
 
         $stmt = $db->prepare("SELECT pin_hash FROM users WHERE id = ?");
@@ -487,11 +486,8 @@ case 'get_transactions':
         $stmt2->execute();
         $receiver = $stmt2->get_result()->fetch_assoc();
 
-        if ($transfer_type === 'internal') {
-            if (!$receiver) json_response("error", "Receiver account not found");
-            if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
-        }
-
+        if (!$receiver) json_response("error", "Receiver account not found");
+        if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
         if ($sender['balance'] < $data['amount']) json_response("error", "Insufficient balance");
 
         // Tiered Limits: Tier 1 ($0), Tier 2 ($5,000), Tier 3 ($50,000)
@@ -520,39 +516,21 @@ case 'get_transactions':
             $stmt3->bind_param("di", $data['amount'], $sender['id']);
             $stmt3->execute();
 
+            $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+            $stmt4->bind_param("di", $data['amount'], $receiver['id']);
+            $stmt4->execute();
+
             $bal_after_s = $sender['balance'] - $data['amount'];
-            $channel = ($transfer_type === 'external') ? 'external_transfer' : 'internal_transfer';
-
-            $external_bank_name = null;
-            if ($transfer_type === 'external') {
-                if ($data['bank_id'] === 'other') {
-                    $external_bank_name = $data['manual_bank_name'];
-                } else {
-                    $banks = [
-                        1 => "JPMorgan Chase", 2 => "Bank of America", 3 => "Citigroup",
-                        4 => "Wells Fargo", 5 => "Goldman Sachs", 6 => "HSBC Holdings",
-                        7 => "Barclays", 8 => "Deutsche Bank", 9 => "BNP Paribas", 10 => "Santander"
-                    ];
-                    $external_bank_name = $banks[$data['bank_id']] ?? 'Unknown Bank';
-                }
-            }
-
-            $receiver_id = $receiver['id'] ?? null;
-            $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id, external_bank_name, external_account_name) VALUES (?, 'debit', ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt5->bind_param("isddsssis", $sender['id'], $channel, $data['amount'], $bal_after_s, $data['narration'], $ref, $receiver_id, $external_bank_name, $data['manual_account_name']);
+            $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'debit', 'internal_transfer', ?, ?, ?, ?, ?)");
+            $stmt5->bind_param("iddssi", $sender['id'], $data['amount'], $bal_after_s, $data['narration'], $ref, $receiver['id']);
             $stmt5->execute();
             $sender_tx_id = $db->insert_id;
 
-            if ($receiver) {
-                $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-                $stmt4->bind_param("di", $data['amount'], $receiver['id']);
-                $stmt4->execute();
-
-                $bal_after_r = $receiver['balance'] + $data['amount'];
-                $ref_c = $ref . "_C";
-                $stmt6 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'credit', 'internal_transfer', ?, ?, ?, ?, ?)");
-                $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
-                $stmt6->execute();
+            $bal_after_r = $receiver['balance'] + $data['amount'];
+            $ref_c = $ref . "_C";
+            $stmt6 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'credit', 'internal_transfer', ?, ?, ?, ?, ?)");
+            $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
+            $stmt6->execute();
 
             // Credit Notification for receiver
               // Credit Notification for receiver
@@ -1256,112 +1234,113 @@ case 'get_transactions':
 
     case 'get_external_banks':
        $banks = [
-    ["id" => 1, "name" => "JPMorgan Chase"],
-    ["id" => 2, "name" => "Bank of America"],
-    ["id" => 3, "name" => "Citigroup"],
-    ["id" => 4, "name" => "Wells Fargo"],
-    ["id" => 5, "name" => "Goldman Sachs"],
-    ["id" => 6, "name" => "HSBC Holdings"],
-    ["id" => 7, "name" => "Barclays"],
-    ["id" => 8, "name" => "Deutsche Bank"],
-    ["id" => 9, "name" => "BNP Paribas"],
-    ["id" => 10, "name" => "Santander"],
-    ["id" => 11, "name" => "Morgan Stanley"],
-    ["id" => 12, "name" => "UBS Group"],
-    ["id" => 13, "name" => "Credit Suisse"],
-    ["id" => 14, "name" => "Industrial and Commercial Bank of China (ICBC)"],
-    ["id" => 15, "name" => "China Construction Bank"],
-    ["id" => 16, "name" => "Agricultural Bank of China"],
-    ["id" => 17, "name" => "Bank of China"],
-    ["id" => 18, "name" => "Mitsubishi UFJ Financial Group"],
-    ["id" => 19, "name" => "Sumitomo Mitsui Financial Group"],
-    ["id" => 20, "name" => "Mizuho Financial Group"],
-    ["id" => 21, "name" => "Royal Bank of Canada"],
-    ["id" => 22, "name" => "Toronto-Dominion Bank"],
-    ["id" => 23, "name" => "Bank of Nova Scotia"],
-    ["id" => 24, "name" => "Bank of Montreal"],
-    ["id" => 25, "name" => "Canadian Imperial Bank of Commerce"],
-    ["id" => 26, "name" => "Commonwealth Bank of Australia"],
-    ["id" => 27, "name" => "Westpac Banking Corp"],
-    ["id" => 28, "name" => "Australia & New Zealand Banking Group"],
-    ["id" => 29, "name" => "National Australia Bank"],
-    ["id" => 30, "name" => "Standard Chartered"],
-    ["id" => 31, "name" => "Société Générale"],
-    ["id" => 32, "name" => "Crédit Agricole"],
-    ["id" => 33, "name" => "ING Group"],
-    ["id" => 34, "name" => "UniCredit"],
-    ["id" => 35, "name" => "Intesa Sanpaolo"],
-    ["id" => 36, "name" => "Banco Bilbao Vizcaya Argentaria (BBVA)"],
-    ["id" => 37, "name" => "Lloyds Banking Group"],
-    ["id" => 38, "name" => "NatWest Group"],
-    ["id" => 39, "name" => "Nordea Bank"],
-    ["id" => 40, "name" => "DBS Bank"],
-    ["id" => 41, "name" => "OCBC Bank"],
-    ["id" => 42, "name" => "United Overseas Bank (UOB)"],
-    ["id" => 43, "name" => "Qatar National Bank"],
-    ["id" => 44, "name" => "First Abu Dhabi Bank"],
-    ["id" => 45, "name" => "Emirates NBD"],
-    ["id" => 46, "name" => "Standard Bank Group"],
-    ["id" => 47, "name" => "FirstRand Bank"],
-    ["id" => 48, "name" => "Absa Group"],
-    ["id" => 49, "name" => "Nedbank Group"],
-    ["id" => 50, "name" => "Investec"],
-    ["id" => 51, "name" => "Access Bank"],
-    ["id" => 52, "name" => "Zenith Bank"],
-    ["id" => 53, "name" => "United Bank for Africa (UBA)"],
-    ["id" => 54, "name" => "Guaranty Trust Bank (GTBank)"],
-    ["id" => 55, "name" => "First Bank of Nigeria"],
-    ["id" => 56, "name" => "State Bank of India"],
-    ["id" => 57, "name" => "HDFC Bank"],
-    ["id" => 58, "name" => "ICICI Bank"],
-    ["id" => 59, "name" => "Axis Bank"],
-    ["id" => 60, "name" => "Kotak Mahindra Bank"],
-    ["id" => 61, "name" => "Itaú Unibanco"],
-    ["id" => 62, "name" => "Banco Bradesco"],
-    ["id" => 63, "name" => "Banco do Brasil"],
-    ["id" => 64, "name" => "Sberbank"],
-    ["id" => 65, "name" => "VTB Bank"],
-    ["id" => 66, "name" => "Kasikornbank"],
-    ["id" => 67, "name" => "Siam Commercial Bank"],
-    ["id" => 68, "name" => "Malayan Banking Berhad (Maybank)"],
-    ["id" => 69, "name" => "CIMB Group"],
-    ["id" => 70, "name" => "Public Bank Berhad"],
-    ["id" => 71, "name" => "National Bank of Kuwait"],
-    ["id" => 72, "name" => "Riyad Bank"],
-    ["id" => 73, "name" => "Al Rajhi Bank"],
-    ["id" => 74, "name" => "Samba Financial Group"],
-    ["id" => 75, "name" => "Commerzbank"],
-    ["id" => 76, "name" => "Danske Bank"],
-    ["id" => 77, "name" => "Skandinaviska Enskilda Banken (SEB)"],
-    ["id" => 78, "name" => "Svenska Handelsbanken"],
-    ["id" => 79, "name" => "Swedbank"],
-    ["id" => 80, "name" => "Erste Group"],
-    ["id" => 81, "name" => "Raiffeisen Bank International"],
-    ["id" => 82, "name" => "KBC Group"],
-    ["id" => 83, "name" => "Belfius"],
-    ["id" => 84, "name" => "Rabobank"],
-    ["id" => 85, "name" => "ABN AMRO"],
-    ["id" => 86, "name" => "Cooperatieve Rabobank"],
-    ["id" => 87, "name" => "PKO Bank Polski"],
-    ["id" => 88, "name" => "Bank Pekao"],
-    ["id" => 89, "name" => "OTP Bank"],
-    ["id" => 90, "name" => "Alpha Bank"],
-    ["id" => 91, "name" => "Eurobank Ergasias"],
-    ["id" => 92, "name" => "National Bank of Greece"],
-    ["id" => 93, "name" => "Piraeus Bank"],
-    ["id" => 94, "name" => "Bank of Ireland"],
-    ["id" => 95, "name" => "Allied Irish Banks"],
-    ["id" => 96, "name" => "Bank of Cyprus"],
-    ["id" => 97, "name" => "Hellenic Bank"],
-    ["id" => 98, "name" => "Banco de Sabadell"],
-    ["id" => 99, "name" => "Bankinter"],
-    ["id" => 100, "name" => "CaixaBank"],
-    ["id" => 101, "name" => "Charles Schwab"],
-    ["id" => 102, "name" => "Capital One"],
-    ["id" => 103, "name" => "PNC Financial Services"],
-    ["id" => 104, "name" => "US Bancorp"],
-    ["id" => 105, "name" => "Truist Financial"]
+    ["id" => 1, "name" => "Industrial and Commercial Bank of China (ICBC)"],
+    ["id" => 2, "name" => "China Construction Bank"],
+    ["id" => 3, "name" => "Agricultural Bank of China"],
+    ["id" => 4, "name" => "Bank of China"],
+    ["id" => 5, "name" => "Sberbank (Russia)"],
+    ["id" => 6, "name" => "VTB Bank (Russia)"],
+    ["id" => 7, "name" => "Gazprombank (Russia)"],
+    ["id" => 8, "name" => "Mitsubishi UFJ Financial Group (Japan)"],
+    ["id" => 9, "name" => "Sumitomo Mitsui Financial Group (Japan)"],
+    ["id" => 10, "name" => "Mizuho Financial Group (Japan)"],
+    ["id" => 11, "name" => "Bank of Communications (China)"],
+    ["id" => 12, "name" => "Postal Savings Bank of China"],
+    ["id" => 13, "name" => "China Merchants Bank"],
+    ["id" => 14, "name" => "Industrial Bank (China)"],
+    ["id" => 15, "name" => "Shanghai Pudong Development Bank"],
+    ["id" => 16, "name" => "China CITIC Bank"],
+    ["id" => 17, "name" => "Alfa-Bank (Russia)"],
+    ["id" => 18, "name" => "Rosselkhozbank (Russian Agricultural Bank)"],
+    ["id" => 19, "name" => "Bank Otkritie (Russia)"],
+    ["id" => 20, "name" => "Tinkoff Bank (Russia)"],
+    ["id" => 21, "name" => "State Bank of India"],
+    ["id" => 22, "name" => "HDFC Bank (India)"],
+    ["id" => 23, "name" => "ICICI Bank (India)"],
+    ["id" => 24, "name" => "DBS Bank (Singapore)"],
+    ["id" => 25, "name" => "OCBC Bank (Singapore)"],
+    ["id" => 26, "name" => "United Overseas Bank (Singapore)"],
+    ["id" => 27, "name" => "Maybank (Malaysia)"],
+    ["id" => 28, "name" => "CIMB Bank (Malaysia)"],
+    ["id" => 29, "name" => "Public Bank Berhad (Malaysia)"],
+    ["id" => 30, "name" => "Kasikornbank (Thailand)"],
+    ["id" => 31, "name" => "Siam Commercial Bank (Thailand)"],
+    ["id" => 32, "name" => "Bangkok Bank (Thailand)"],
+    ["id" => 33, "name" => "Vietcombank (Vietnam)"],
+    ["id" => 34, "name" => "Joint Stock Commercial Bank for Investment and Development of Vietnam (BIDV)"],
+    ["id" => 35, "name" => "Bank Central Asia (Indonesia)"],
+    ["id" => 36, "name" => "Bank Mandiri (Indonesia)"],
+    ["id" => 37, "name" => "Bank Rakyat Indonesia"],
+    ["id" => 38, "name" => "Kookmin Bank (South Korea)"],
+    ["id" => 39, "name" => "Shinhan Bank (South Korea)"],
+    ["id" => 40, "name" => "Hana Bank (South Korea)"],
+    ["id" => 41, "name" => "Woori Bank (South Korea)"],
+    ["id" => 42, "name" => "Cathay United Bank (Taiwan)"],
+    ["id" => 43, "name" => "CTBC Bank (Taiwan)"],
+    ["id" => 44, "name" => "Bank of Taiwan"],
+    ["id" => 45, "name" => "BDO Unibank (Philippines)"],
+    ["id" => 46, "name" => "Metropolitan Bank and Trust Company (Philippines)"],
+    ["id" => 47, "name" => "Bank of the Philippine Islands"],
+    ["id" => 48, "name" => "Habib Bank (Pakistan)"],
+    ["id" => 49, "name" => "National Bank of Pakistan"],
+    ["id" => 50, "name" => "MCB Bank (Pakistan)"],
+    ["id" => 51, "name" => "Bank of Ceylon (Sri Lanka)"],
+    ["id" => 52, "name" => "Commercial Bank of Ceylon"],
+    ["id" => 53, "name" => "Sonali Bank (Bangladesh)"],
+    ["id" => 54, "name" => "Islami Bank Bangladesh"],
+    ["id" => 55, "name" => "Promsvyazbank (Russia)"],
+    ["id" => 56, "name" => "Raiffeisenbank Russia"],
+    ["id" => 57, "name" => "Sovcombank (Russia)"],
+    ["id" => 58, "name" => "Bank Saint Petersburg (Russia)"],
+    ["id" => 59, "name" => "Ping An Bank (China)"],
+    ["id" => 60, "name" => "Huaxia Bank (China)"],
+    ["id" => 61, "name" => "China Minsheng Bank"],
+    ["id" => 62, "name" => "China Everbright Bank"],
+    ["id" => 63, "name" => "Bank of Beijing"],
+    ["id" => 64, "name" => "Bank of Shanghai"],
+    ["id" => 65, "name" => "Bank of Nanjing"],
+    ["id" => 66, "name" => "Bank of Ningbo"],
+    ["id" => 67, "name" => "Zheshang Bank (China)"],
+    ["id" => 68, "name" => "Shengjing Bank (China)"],
+    ["id" => 69, "name" => "Bank of Chongqing"],
+    ["id" => 70, "name" => "Bank of Chengdu"],
+    ["id" => 71, "name" => "Resona Holdings (Japan)"],
+    ["id" => 72, "name" => "Fukuoka Financial Group (Japan)"],
+    ["id" => 73, "name" => "Chiba Bank (Japan)"],
+    ["id" => 74, "name" => "Bank of Yokohama (Japan)"],
+    ["id" => 75, "name" => "Shizuoka Bank (Japan)"],
+    ["id" => 76, "name" => "Axis Bank (India)"],
+    ["id" => 77, "name" => "Punjab National Bank (India)"],
+    ["id" => 78, "name" => "Bank of Baroda (India)"],
+    ["id" => 79, "name" => "Canara Bank (India)"],
+    ["id" => 80, "name" => "Union Bank of India"],
+    ["id" => 81, "name" => "Industrial Bank of Korea"],
+    ["id" => 82, "name" => "Nonghyup Bank (South Korea)"],
+    ["id" => 83, "name" => "Busan Bank (South Korea)"],
+    ["id" => 84, "name" => "Daegu Bank (South Korea)"],
+    ["id" => 85, "name" => "Standard Chartered Korea"],
+    ["id" => 86, "name" => "Krung Thai Bank (Thailand)"],
+    ["id" => 87, "name" => "TMBThanachart Bank (Thailand)"],
+    ["id" => 88, "name" => "Bank of Ayudhya (Thailand)"],
+    ["id" => 89, "name" => "RHB Bank (Malaysia)"],
+    ["id" => 90, "name" => "AmBank (Malaysia)"],
+    ["id" => 91, "name" => "Hong Leong Bank (Malaysia)"],
+    ["id" => 92, "name" => "Alliance Bank (Malaysia)"],
+    ["id" => 93, "name" => "Bank Negara Indonesia"],
+    ["id" => 94, "name" => "Bank Danamon (Indonesia)"],
+    ["id" => 95, "name" => "Bank Permata (Indonesia)"],
+    ["id" => 96, "name" => "Bank Syariah Indonesia"],
+    ["id" => 97, "name" => "VietinBank (Vietnam)"],
+    ["id" => 98, "name" => "Military Commercial Joint Stock Bank (Vietnam)"],
+    ["id" => 99, "name" => "Techcombank (Vietnam)"],
+    ["id" => 100, "name" => "Sacombank (Vietnam)"],
+    ["id" => 101, "name" => "Rosbank (Russia)"],
+    ["id" => 102, "name" => "Uralsib Bank (Russia)"],
+    ["id" => 103, "name" => "Bank of Hangzhou (China)"],
+    ["id" => 104, "name" => "Bank of Suzhou (China)"],
+    ["id" => 105, "name" => "Bank of Guiyang (China)"]
 ];
+
         json_response("success", "Banks fetched", $banks);
         break;
 
