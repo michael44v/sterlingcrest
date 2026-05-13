@@ -18,7 +18,7 @@ const SendMoney = () => {
   const [banks, setBanks] = useState([]);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [swapType, setSwapType] = useState('internal');
-
+  
   const [formData, setFormData] = useState({
     account_number: '',
     amount: '',
@@ -65,8 +65,8 @@ const SendMoney = () => {
       const response = await api.get(`?action=resolve_account&account_number=${num}`);
       if (response.data.status === 'success') {
         setRecipient(response.data.data);
-        setFormData(prev => ({
-            ...prev,
+        setFormData(prev => ({ 
+            ...prev, 
             manual_account_name: response.data.data.account_holder_name,
             ...(accNum ? { account_number: accNum } : {})
         }));
@@ -172,7 +172,7 @@ const SendMoney = () => {
       </div>
 
       <div className="flex bg-gray-100 p-1 rounded-xl mb-8">
-          <button
+          <button 
             onClick={() => {
                 setTransferType('internal');
                 setStep(1);
@@ -184,7 +184,7 @@ const SendMoney = () => {
               <Building2 size={20} />
               Internal Transfer
           </button>
-          <button
+          <button 
             onClick={() => {
                 setTransferType('external');
                 setStep(1);
@@ -208,7 +208,7 @@ const SendMoney = () => {
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <label className="block text-sm font-bold text-chase-navy uppercase tracking-wider">Select Destination Bank</label>
-                        <select
+                        <select 
                             className="w-full px-4 py-3 bg-gray-50 border border-chase-border rounded-xl focus:ring-2 focus:ring-chase-blue focus:border-transparent transition-all outline-none"
                             value={formData.bank_id}
                             onChange={(e) => setFormData({...formData, bank_id: e.target.value})}
@@ -271,14 +271,6 @@ const SendMoney = () => {
             )}
 
             {transferType === 'external' && (
-
-             <Input
-                    label="BANK Name"
-                    placeholder="Enter your bank name"
-                    value={formData.manual_account_name}
-                  //  onChange={(e) => setFormData({...formData, manual_account_name: e.target.value})}
-                    required
-                />
                 <Input
                     label="Account Name"
                     placeholder="Full name on the account"
@@ -302,14 +294,14 @@ const SendMoney = () => {
               value={formData.narration}
               onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
             />
-            <Button
-                type="submit"
-                loading={loading}
+            <Button 
+                type="submit" 
+                loading={loading} 
                 disabled={
-                    (transferType === 'internal' && !recipient) ||
+                    (transferType === 'internal' && !recipient) || 
                     (transferType === 'external' && (!formData.bank_id || !formData.manual_account_name || !formData.account_number)) ||
                     (transferType === 'external' && formData.bank_id === 'other' && !formData.manual_bank_name)
-                }
+                } 
                 className="w-full"
             >
               Continue
