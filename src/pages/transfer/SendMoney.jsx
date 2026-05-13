@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import { formatUSD } from '../../utils/formatCurrency';
 import Button from '../../components/ui/Button';
@@ -10,6 +11,7 @@ import BeneficiaryList from '../../components/transfer/BeneficiaryList';
 
 const SendMoney = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const typeParam = searchParams.get('type') || 'internal';
   const [step, setStep] = useState(1);
@@ -29,7 +31,7 @@ const SendMoney = () => {
     confirm_name: '',
     bank_id: '',
     manual_bank_name: '',
-    manual_account_name: ''
+    manual_account_name: user?.full_name || ''
   });
 
   useEffect(() => {
@@ -72,7 +74,7 @@ const SendMoney = () => {
         confirm_name: '',
         bank_id: '',
         manual_bank_name: '',
-        manual_account_name: ''
+        manual_account_name: user?.full_name || ''
     }));
   }, [typeParam]);
 
@@ -96,7 +98,7 @@ const SendMoney = () => {
         }
         setRecipient(null);
         if (transferType === 'external' && formData.bank_id && formData.bank_id !== 'other') {
-            setFormData(prev => ({ ...prev, manual_account_name: '' }));
+            setFormData(prev => ({ ...prev, manual_account_name: user?.full_name || '' }));
         }
       }
     } catch (e) {
@@ -104,7 +106,7 @@ const SendMoney = () => {
             toast.error('Could not find account');
         }
         if (transferType === 'external' && formData.bank_id && formData.bank_id !== 'other') {
-            setFormData(prev => ({ ...prev, manual_account_name: '' }));
+            setFormData(prev => ({ ...prev, manual_account_name: user?.full_name || '' }));
         }
     } finally {
       setLoading(false);
