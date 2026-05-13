@@ -118,7 +118,7 @@ const VerifyEmail = () => {
             </Button>
 
             <div className="text-center pt-4">
-              <p className="text-gray-500 mb-4 font-medium">Didn't receive the code?</p>
+              <p className="text-gray-500 mb-4 font-medium"></p>
              
              
             </div>
