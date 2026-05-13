@@ -1149,6 +1149,103 @@ case 'get_transactions':
         json_response("success", "Beneficiary added");
         break;
 
+    case 'create_swap_protocol':
+        $user = require_auth();
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        $type = $data['type'] ?? 'internal';
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("INSERT INTO swap_protocols (user_id, type, status) VALUES (?, ?, 'pending')");
+        $stmt->bind_param("is", $user['sub'], $type);
+        $stmt->execute();
+        json_response("success", "Swap protocol initiated");
+        break;
+
+    case 'check_swap_protocol_status':
+        $user = require_auth();
+        $type = $_GET['type'] ?? 'internal';
+
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT status FROM swap_protocols WHERE user_id = ? AND type = ? AND status = 'completed' LIMIT 1");
+        $stmt->bind_param("is", $user['sub'], $type);
+        $stmt->execute();
+        $res = $stmt->get_result()->fetch_assoc();
+
+        if ($res) {
+            json_response("success", "Swap protocol approved", ["status" => "completed"]);
+        } else {
+            json_response("error", "Swap protocol pending or not found", ["status" => "pending"]);
+        }
+        break;
+
+    case 'admin_get_swap_protocols':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $db = Database::getInstance()->getConnection();
+        $res = $db->query("SELECT s.*, u.full_name, u.email, a.kyc_tier
+                           FROM swap_protocols s
+                           JOIN users u ON s.user_id = u.id
+                           JOIN accounts a ON u.id = a.user_id
+                           ORDER BY s.created_at DESC");
+        $rows = [];
+        while ($row = $res->fetch_assoc()) { $rows[] = $row; }
+        json_response("success", "Swap protocols", $rows);
+        break;
+
+    case 'admin_complete_swap_protocol':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['protocol_id'])) json_response("error", "Protocol ID required");
+
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            $stmt = $db->prepare("UPDATE swap_protocols SET status = 'completed', completed_at = NOW() WHERE id = ?");
+            $stmt->bind_param("i", $data['protocol_id']);
+            $stmt->execute();
+
+            // If it's an internal swap, maybe upgrade tier?
+            // The existing memory says it's used for Tier 1 users to perform transfers.
+            // Requirement says: "when the user the user details is shown, it prompts the user about the swap protocol again independent of the user tier untill the admin approves the swap protocol"
+
+            $stmt_get = $db->prepare("SELECT user_id, type FROM swap_protocols WHERE id = ?");
+            $stmt_get->bind_param("i", $data['protocol_id']);
+            $stmt_get->execute();
+            $proto = $stmt_get->get_result()->fetch_assoc();
+
+            if ($proto && $proto['type'] === 'internal') {
+                $stmt_up = $db->prepare("UPDATE accounts SET kyc_tier = GREATEST(kyc_tier, 2) WHERE user_id = ?");
+                $stmt_up->bind_param("i", $proto['user_id']);
+                $stmt_up->execute();
+            }
+
+            $db->commit();
+            json_response("success", "Swap protocol approved");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Failed to approve swap protocol");
+        }
+        break;
+
+    case 'get_external_banks':
+        $banks = [
+            ["id" => 1, "name" => "JPMorgan Chase"],
+            ["id" => 2, "name" => "Bank of America"],
+            ["id" => 3, "name" => "Citigroup"],
+            ["id" => 4, "name" => "Wells Fargo"],
+            ["id" => 5, "name" => "Goldman Sachs"],
+            ["id" => 6, "name" => "HSBC Holdings"],
+            ["id" => 7, "name" => "Barclays"],
+            ["id" => 8, "name" => "Deutsche Bank"],
+            ["id" => 9, "name" => "BNP Paribas"],
+            ["id" => 10, "name" => "Santander"]
+        ];
+        json_response("success", "Banks fetched", $banks);
+        break;
+
     case 'logout':
         $token = $_COOKIE['refresh_token'] ?? '';
         if ($token) {

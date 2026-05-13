@@ -41,8 +41,8 @@ const Sidebar = ({ open, onClose }) => {
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-64 bg-chase-navy text-white flex flex-col
         transform transition-transform duration-300 ease-in-out
-        md:relative md:translate-x-0
-        ${open ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:transform-none
+        ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <div className="p-6 text-xl font-bold border-b border-white/10 flex items-center justify-between">
           <span>NorthBridge Bank</span>
