@@ -1,9 +1,9 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-const CHASE_NAVY = [2, 44, 34]; // #022c22
-const CHASE_BLUE = [13, 148, 136]; // #0d9488
-const LIGHT_BLUE = [240, 253, 244]; // #f0fdf4
+const CHASE_NAVY = [28, 25, 23]; // #1c1917
+const CHASE_BLUE = [254, 130, 14]; // #fe820e
+const LIGHT_BLUE = [255, 247, 237]; // #fff7ed
 
 export const generateStatement = (data) => {
   const { account, period, summary, transactions } = data;
@@ -16,7 +16,7 @@ export const generateStatement = (data) => {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('SterLingCrest Finance', 15, 25);
+  doc.text('Starling Crest Finance', 15, 25);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -95,5 +95,5 @@ export const generateStatement = (data) => {
     doc.text(`Page ${i} of ${pageCount}`, 195, 285, { align: 'right' });
   }
 
-  doc.save(`SterLingCrest Finance_Statement_${account.accountNumber}_${period.to}.pdf`);
+  doc.save(`Starling Crest Finance_Statement_${account.accountNumber}_${period.to}.pdf`);
 };

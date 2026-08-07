@@ -19,7 +19,7 @@ const Sidebar = ({ open, onClose }) => {
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Send Money', path: '/transfer/send', icon: SendHorizontal },
+    { name: 'Transfer', path: '/transfer/send', icon: SendHorizontal },
     { name: 'Deposit', path: '/deposit', icon: Download },
     { name: 'Savings', path: '/savings', icon: PiggyBank },
     { name: 'History', path: '/history', icon: History },
@@ -44,8 +44,14 @@ const Sidebar = ({ open, onClose }) => {
         md:relative md:transform-none
         ${open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
-        <div className="p-6 text-xl font-bold border-b border-white/10 flex items-center justify-between">
-          <span>SterLingCrest Finance</span>
+        <div className="p-6 border-b border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img
+              src="/logo.png"
+              alt="Starling Crest Finance"
+              className="h-10 w-auto bg-white p-1.5 rounded-lg"
+            />
+          </div>
           <button
             onClick={onClose}
             className="md:hidden p-1 hover:bg-white/10 rounded-lg transition-colors"

@@ -8,25 +8,18 @@ import GlobeBackground from '../../components/ui/Globebackground';
 /* ── Shared sub-components ───────────────────────────────────────────── */
 const LogoRow = ({ subtitle }) => (
   <div style={{ textAlign: 'center', marginBottom: '1.5rem', position: 'relative', zIndex: 2 }}>
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
-      <div style={{
-        width: 34, height: 34,
-        background: 'linear-gradient(135deg, #0d9488, #022c22)',
-        borderRadius: 9,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
-          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          <polyline points="9 22 9 12 15 12 15 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </div>
-      <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#022c22', letterSpacing: '-0.4px' }}>
-        SterLingCrest Finance
-      </span>
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <img
+        src="/logo.png"
+        alt="Starling Crest Finance"
+        style={{ height: 60, width: 'auto', display: 'block', borderRadius: 8 }}
+      />
+      {subtitle && (
+        <p style={{ fontSize: 10, color: '#6B7A99', margin: '4px 0 0', fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>
+          {subtitle}
+        </p>
+      )}
     </div>
-    <p style={{ fontSize: 10, color: '#6B7A99', margin: 0, fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>
-      {subtitle}
-    </p>
   </div>
 );
 
@@ -54,12 +47,12 @@ const Field = ({ label, type = 'text', placeholder, value, onChange, name }) => 
           padding: '13px 15px',
           fontSize: 14, fontFamily: '"DM Sans", sans-serif',
           background: 'rgba(255,255,255,0.9)',
-          border: `1.5px solid ${focused ? '#0d9488' : '#cbd5e1'}`,
+          border: `1.5px solid ${focused ? '#fe820e' : '#cbd5e1'}`,
           borderRadius: 11,
           outline: 'none',
-          color: '#022c22',
+          color: '#1c1917',
           transition: 'border-color 0.2s, box-shadow 0.2s',
-          boxShadow: focused ? '0 0 0 3px rgba(13,148,136,0.12)' : 'none',
+          boxShadow: focused ? '0 0 0 3px rgba(254,130,14,0.15)' : 'none',
         }}
       />
     </div>
@@ -101,7 +94,7 @@ const Login = () => {
   return (
     <div style={{
       minHeight: '100vh', width: '100%',
-      background: 'linear-gradient(170deg, #f0fdfa 0%, #f0fdf4 45%, #ccfbf1 100%)',
+      background: 'linear-gradient(170deg, #fff7ed 0%, #fffbeb 45%, #ffedd5 100%)',
       fontFamily: '"DM Sans", sans-serif',
       display: 'flex', flexDirection: 'column',
       position: 'relative', overflow: 'hidden',
@@ -117,7 +110,7 @@ const Login = () => {
       {/* Sky fade */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, height: '55%',
-        background: 'linear-gradient(180deg, rgba(235,243,251,0.65) 0%, transparent 100%)',
+        background: 'linear-gradient(180deg, rgba(254,243,232,0.65) 0%, transparent 100%)',
         zIndex: 1, pointerEvents: 'none',
       }} />
 
@@ -135,11 +128,11 @@ const Login = () => {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'rgba(13,148,136,0.10)', border: '1px solid rgba(13,148,136,0.20)',
+            background: 'rgba(254,130,14,0.10)', border: '1px solid rgba(254,130,14,0.20)',
             borderRadius: 100, padding: '5px 14px',
           }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#0d9488', boxShadow: '0 0 6px #0d9488' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#0d9488', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fe820e', boxShadow: '0 0 6px #fe820e' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#fe820e', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
               GBP Banking Network
             </span>
           </div>
@@ -156,15 +149,15 @@ const Login = () => {
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderRadius: 22,
-          border: '1px solid rgba(13,148,136,0.13)',
+          border: '1px solid rgba(254,130,14,0.13)',
           padding: '26px 22px 22px',
-          boxShadow: '0 20px 60px rgba(2,44,34,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
+          boxShadow: '0 20px 60px rgba(28,25,23,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
         }}>
-          <h1 style={{ fontSize: 25, fontWeight: 800, color: '#022c22', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
+          <h1 style={{ fontSize: 25, fontWeight: 800, color: '#1c1917', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
             Welcome back
           </h1>
           <p style={{ fontSize: 13, color: '#7A8AA8', margin: '0 0 22px' }}>
-            Sign in to Sterling Crest Finance
+            Sign in to Starling Crest Finance
           </p>
 
           <form onSubmit={handleSubmit}>
@@ -188,7 +181,7 @@ const Login = () => {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18, marginTop: -4 }}>
-              <Link to="/forgot-password" style={{ fontSize: 12, fontWeight: 700, color: '#0d9488', textDecoration: 'none' }}>
+              <Link to="/forgot-password" style={{ fontSize: 12, fontWeight: 700, color: '#fe820e', textDecoration: 'none' }}>
                 Forgot password?
               </Link>
             </div>
@@ -198,12 +191,12 @@ const Login = () => {
               disabled={loading}
               style={{
                 width: '100%', padding: '15px',
-                background: loading ? '#6dbaaf' : 'linear-gradient(135deg, #0d9488 0%, #022c22 100%)',
+                background: loading ? '#fca5a5' : 'linear-gradient(135deg, #fe820e 0%, #1c1917 100%)',
                 color: 'white', border: 'none', borderRadius: 13,
                 fontSize: 15, fontWeight: 800,
                 cursor: loading ? 'default' : 'pointer',
                 letterSpacing: '0.02em',
-                boxShadow: '0 8px 24px rgba(13,148,136,0.35)',
+                boxShadow: '0 8px 24px rgba(254,130,14,0.35)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 transition: 'opacity 0.2s, transform 0.15s',
                 transform: loading ? 'scale(0.98)' : 'scale(1)',
@@ -228,16 +221,16 @@ const Login = () => {
 
           {/* Divider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0' }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(2,44,34,0.08)' }} />
+            <div style={{ flex: 1, height: 1, background: 'rgba(28,25,23,0.08)' }} />
             <span style={{ fontSize: 10, color: '#AAB4C8', fontWeight: 700, letterSpacing: '0.08em' }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: 'rgba(2,44,34,0.08)' }} />
+            <div style={{ flex: 1, height: 1, background: 'rgba(28,25,23,0.08)' }} />
           </div>
 
           <Link to="/register" style={{ textDecoration: 'none' }}>
             <button style={{
               width: '100%', padding: '14px',
               background: 'transparent',
-              color: '#022c22', border: '1.5px solid #a7f3d0',
+              color: '#1c1917', border: '1.5px solid #ffedd5',
               borderRadius: 13, fontSize: 13, fontWeight: 800,
               cursor: 'pointer', letterSpacing: '0.06em', textTransform: 'uppercase',
               fontFamily: '"DM Sans", sans-serif',
