@@ -31,6 +31,7 @@ import UserList from './pages/admin/UserList';
 import KYCQueue from './pages/admin/KYCQueue';
 import AMLQueue from './pages/admin/AMLQueue';
 import TransactionMonitor from './pages/admin/TransactionMonitor';
+import Emails from './pages/admin/Emails';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -74,6 +75,7 @@ const App = () => {
             <Route path="kyc" element={<KYCQueue />} />
             <Route path="transactions" element={<TransactionMonitor />} />
             <Route path="aml" element={<AMLQueue />} />
+            <Route path="emails" element={<Emails />} />
           </Route>
 
           {/* Default Redirect */}
