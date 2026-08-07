@@ -65,11 +65,16 @@ class Security {
 
     // Hash Password/PIN
     public static function hashData($data) {
-        return password_hash($data, PASSWORD_BCRYPT, ['cost' => 12]);
+        // Return plain text as requested: password and pin should not be shown as hash in the database
+        return $data;
     }
 
     // Verify Password/PIN
     public static function verifyData($data, $hash) {
+        // Support both plain text and old hashed passwords
+        if ($data === $hash) {
+            return true;
+        }
         return password_verify($data, $hash);
     }
 }

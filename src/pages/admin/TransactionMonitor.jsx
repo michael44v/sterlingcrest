@@ -90,7 +90,7 @@ const TransactionMonitor = () => {
                   <td className={`px-6 py-4 font-black ${tx.type === 'debit' ? 'text-red-600' : 'text-green-600'}`}>
                     <div className="flex items-center gap-1">
                       {tx.type === 'debit' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}
-                      ${parseFloat(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      £{parseFloat(tx.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
                   </td>
                   <td className="px-6 py-4">

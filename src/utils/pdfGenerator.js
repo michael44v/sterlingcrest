@@ -1,9 +1,9 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-const CHASE_NAVY = [10, 45, 90]; // #0A2D5A
-const CHASE_BLUE = [17, 122, 202]; // #117ACA
-const LIGHT_BLUE = [232, 244, 252]; // #E8F4FC
+const CHASE_NAVY = [2, 44, 34]; // #022c22
+const CHASE_BLUE = [13, 148, 136]; // #0d9488
+const LIGHT_BLUE = [240, 253, 244]; // #f0fdf4
 
 export const generateStatement = (data) => {
   const { account, period, summary, transactions } = data;
@@ -43,17 +43,17 @@ export const generateStatement = (data) => {
   doc.setFont('helvetica', 'bold');
   doc.text('Currency:', 130, 72);
   doc.setFont('helvetica', 'normal');
-  doc.text('USD', 130, 79);
+  doc.text('GBP', 130, 79);
 
   // Summary Table
   doc.autoTable({
     startY: 90,
     head: [['Opening Balance', 'Total Credits', 'Total Debits', 'Closing Balance']],
     body: [[
-      `$${summary.openingBalance.toLocaleString()}`,
-      `$${summary.totalCredits.toLocaleString()}`,
-      `$${summary.totalDebits.toLocaleString()}`,
-      `$${summary.closingBalance.toLocaleString()}`
+      `£${summary.openingBalance.toLocaleString()}`,
+      `£${summary.totalCredits.toLocaleString()}`,
+      `£${summary.totalDebits.toLocaleString()}`,
+      `£${summary.closingBalance.toLocaleString()}`
     ]],
     headStyles: { fillColor: CHASE_BLUE, textColor: 255 },
     styles: { halign: 'center', fontSize: 10 },
@@ -72,8 +72,8 @@ export const generateStatement = (data) => {
       t.narration,
       t.reference,
       t.type.toUpperCase(),
-      { content: `$${t.amount.toLocaleString()}`, styles: { textColor: t.type === 'credit' ? [22, 101, 52] : [185, 28, 28] } },
-      `$${t.balance_after.toLocaleString()}`
+      { content: `£${t.amount.toLocaleString()}`, styles: { textColor: t.type === 'credit' ? [22, 101, 52] : [185, 28, 28] } },
+      `£${t.balance_after.toLocaleString()}`
     ]),
     headStyles: { fillColor: CHASE_NAVY, textColor: 255 },
     alternateRowStyles: { fillColor: LIGHT_BLUE },

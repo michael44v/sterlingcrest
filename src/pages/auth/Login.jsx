@@ -11,7 +11,7 @@ const LogoRow = ({ subtitle }) => (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
       <div style={{
         width: 34, height: 34,
-        background: 'linear-gradient(135deg, #117ACA, #0A2D5A)',
+        background: 'linear-gradient(135deg, #0d9488, #022c22)',
         borderRadius: 9,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
@@ -20,7 +20,7 @@ const LogoRow = ({ subtitle }) => (
           <polyline points="9 22 9 12 15 12 15 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#0A2D5A', letterSpacing: '-0.4px' }}>
+      <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#022c22', letterSpacing: '-0.4px' }}>
         NorthBridge
       </span>
     </div>
@@ -54,12 +54,12 @@ const Field = ({ label, type = 'text', placeholder, value, onChange, name }) => 
           padding: '13px 15px',
           fontSize: 14, fontFamily: '"DM Sans", sans-serif',
           background: 'rgba(255,255,255,0.9)',
-          border: `1.5px solid ${focused ? '#117ACA' : '#D8E4F0'}`,
+          border: `1.5px solid ${focused ? '#0d9488' : '#cbd5e1'}`,
           borderRadius: 11,
           outline: 'none',
-          color: '#0A2D5A',
+          color: '#022c22',
           transition: 'border-color 0.2s, box-shadow 0.2s',
-          boxShadow: focused ? '0 0 0 3px rgba(17,122,202,0.12)' : 'none',
+          boxShadow: focused ? '0 0 0 3px rgba(13,148,136,0.12)' : 'none',
         }}
       />
     </div>
@@ -101,7 +101,7 @@ const Login = () => {
   return (
     <div style={{
       minHeight: '100vh', width: '100%',
-      background: 'linear-gradient(170deg, #EBF3FB 0%, #F5F8FF 45%, #EEF3FF 100%)',
+      background: 'linear-gradient(170deg, #f0fdfa 0%, #f0fdf4 45%, #ccfbf1 100%)',
       fontFamily: '"DM Sans", sans-serif',
       display: 'flex', flexDirection: 'column',
       position: 'relative', overflow: 'hidden',
@@ -135,12 +135,12 @@ const Login = () => {
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.25rem' }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'rgba(17,122,202,0.10)', border: '1px solid rgba(17,122,202,0.20)',
+            background: 'rgba(13,148,136,0.10)', border: '1px solid rgba(13,148,136,0.20)',
             borderRadius: 100, padding: '5px 14px',
           }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#117ACA', boxShadow: '0 0 6px #117ACA' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#117ACA', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              USD Banking Network
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#0d9488', boxShadow: '0 0 6px #0d9488' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#0d9488', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              GBP Banking Network
             </span>
           </div>
         </div>
@@ -156,11 +156,11 @@ const Login = () => {
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderRadius: 22,
-          border: '1px solid rgba(17,122,202,0.13)',
+          border: '1px solid rgba(13,148,136,0.13)',
           padding: '26px 22px 22px',
-          boxShadow: '0 20px 60px rgba(10,45,90,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
+          boxShadow: '0 20px 60px rgba(2,44,34,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
         }}>
-          <h1 style={{ fontSize: 25, fontWeight: 800, color: '#0A2D5A', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
+          <h1 style={{ fontSize: 25, fontWeight: 800, color: '#022c22', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
             Welcome back
           </h1>
           <p style={{ fontSize: 13, color: '#7A8AA8', margin: '0 0 22px' }}>
@@ -188,7 +188,7 @@ const Login = () => {
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18, marginTop: -4 }}>
-              <Link to="/forgot-password" style={{ fontSize: 12, fontWeight: 700, color: '#117ACA', textDecoration: 'none' }}>
+              <Link to="/forgot-password" style={{ fontSize: 12, fontWeight: 700, color: '#0d9488', textDecoration: 'none' }}>
                 Forgot password?
               </Link>
             </div>
@@ -198,12 +198,12 @@ const Login = () => {
               disabled={loading}
               style={{
                 width: '100%', padding: '15px',
-                background: loading ? '#6BA5D4' : 'linear-gradient(135deg, #117ACA 0%, #0A2D5A 100%)',
+                background: loading ? '#6dbaaf' : 'linear-gradient(135deg, #0d9488 0%, #022c22 100%)',
                 color: 'white', border: 'none', borderRadius: 13,
                 fontSize: 15, fontWeight: 800,
                 cursor: loading ? 'default' : 'pointer',
                 letterSpacing: '0.02em',
-                boxShadow: '0 8px 24px rgba(17,122,202,0.35)',
+                boxShadow: '0 8px 24px rgba(13,148,136,0.35)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 transition: 'opacity 0.2s, transform 0.15s',
                 transform: loading ? 'scale(0.98)' : 'scale(1)',
@@ -228,16 +228,16 @@ const Login = () => {
 
           {/* Divider */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '18px 0' }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(10,45,90,0.08)' }} />
+            <div style={{ flex: 1, height: 1, background: 'rgba(2,44,34,0.08)' }} />
             <span style={{ fontSize: 10, color: '#AAB4C8', fontWeight: 700, letterSpacing: '0.08em' }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: 'rgba(10,45,90,0.08)' }} />
+            <div style={{ flex: 1, height: 1, background: 'rgba(2,44,34,0.08)' }} />
           </div>
 
           <Link to="/register" style={{ textDecoration: 'none' }}>
             <button style={{
               width: '100%', padding: '14px',
               background: 'transparent',
-              color: '#0A2D5A', border: '1.5px solid #C8DCF0',
+              color: '#022c22', border: '1.5px solid #a7f3d0',
               borderRadius: 13, fontSize: 13, fontWeight: 800,
               cursor: 'pointer', letterSpacing: '0.06em', textTransform: 'uppercase',
               fontFamily: '"DM Sans", sans-serif',
