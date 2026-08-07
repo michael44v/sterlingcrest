@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, Users, ShieldCheck, Activity, AlertTriangle, ArrowLeft, Menu, X, RefreshCcw } from 'lucide-react';
+import { LayoutDashboard, Users, ShieldCheck, Activity, AlertTriangle, ArrowLeft, Menu, X, RefreshCcw, Mail } from 'lucide-react';
+
+import AdminLogin from './AdminLogin';
 
 const AdminLayout = () => {
   const { user, loading } = useAuth();
@@ -15,9 +17,9 @@ const AdminLayout = () => {
     );
   }
 
-  // Strict role & auth check
+  // Strict role & auth check - render dedicated Admin Login instead of redirecting to user login
   if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    return <Navigate to="/login" replace />;
+    return <AdminLogin />;
   }
 
   const navItems = [
@@ -26,6 +28,7 @@ const AdminLayout = () => {
     { name: 'KYC Queue', path: '/admin/kyc', icon: ShieldCheck },
     { name: 'Transactions', path: '/admin/transactions', icon: Activity },
     { name: 'AML Flags', path: '/admin/aml', icon: AlertTriangle },
+    { name: 'Emails', path: '/admin/emails', icon: Mail },
   ];
 
   return (

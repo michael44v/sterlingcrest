@@ -1007,6 +1007,96 @@ case 'get_transactions':
         json_response("success", "User list", $users);
         break;
 
+    case 'admin_get_users_emails':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $db = Database::getInstance()->getConnection();
+        $res = $db->query("SELECT id, full_name, email FROM users ORDER BY full_name ASC");
+        $users = [];
+        while ($row = $res->fetch_assoc()) { $users[] = $row; }
+        json_response("success", "Active users email list", $users);
+        break;
+
+    case 'admin_send_custom_email':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['email']) || empty($data['name']) || empty($data['subject']) || empty($data['message'])) {
+            json_response("error", "Missing email fields");
+        }
+
+        // Email template matching our orange brand theme (#fe820e) and dark background (#1c1917)
+        $brand_orange = "#fe820e";
+        $brand_dark   = "#1c1917";
+        $brand_light  = "#fff7ed";
+        $brand_name   = "Starling Crest Finance";
+        $support_email= "support@starlingcrestfinance.com";
+
+        // Let's build a beautifully structured notification card styled in our brand colors
+        // We strip all linebreaks/returns to prevent nl2br on the mail.php wrapper from injecting raw <br /> tags inside our HTML structure.
+        $brand_orange = "#fe820e";
+        $brand_dark   = "#1c1917";
+        $brand_light  = "#fff7ed";
+        $brand_name   = "Starling Crest Finance";
+        $support_email= "support@starlingcrestfinance.com";
+
+        $html_message = "<div style='font-family: Arial, sans-serif; background-color: " . $brand_light . "; color: " . $brand_dark . "; padding: 24px; border-radius: 12px; border: 1px solid #ffedd5; box-shadow: 0 4px 15px rgba(28,25,23,0.05); margin-top: 10px; margin-bottom: 10px; text-align: left;'>";
+        $html_message .= "<div style='background-color: " . $brand_dark . "; padding: 24px; text-align: center; border-radius: 8px 8px 0 0; border-bottom: 4px solid " . $brand_orange . ";'>";
+        $html_message .= "<h2 style='color: #ffffff; margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;'>" . $brand_name . "</h2>";
+        $html_message .= "<p style='color: " . $brand_orange . "; margin: 4px 0 0; font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 2px;'>Secure Notification</p>";
+        $html_message .= "</div>";
+        $html_message .= "<div style='background-color: #ffffff; padding: 24px; border-radius: 0 0 8px 8px; border: 1px solid #f1f5f9; border-top: none;'>";
+        $html_message .= "<p style='font-size: 15px; line-height: 1.6; color: " . $brand_dark . "; margin-top: 0;'>Hello " . htmlspecialchars($data['name']) . ",</p>";
+        $html_message .= "<p style='font-size: 14px; line-height: 1.6; color: #475569;'>" . nl2br(htmlspecialchars($data['message'])) . "</p>";
+        $html_message .= "<div style='text-align: center; margin: 24px 0 12px;'>";
+        $html_message .= "<a href='https://bluevult.com/dashboard' style='display: inline-block; background: linear-gradient(135deg, " . $brand_orange . " 0%, " . $brand_dark . " 100%); color: #ffffff; text-decoration: none; padding: 12px 30px; border-radius: 8px; font-weight: bold; font-size: 13px; box-shadow: 0 4px 12px rgba(254,130,14,0.25);'>Go to Dashboard</a>";
+        $html_message .= "</div>";
+        $html_message .= "<div style='margin-top: 24px; padding-top: 16px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #64748b; line-height: 1.5;'>";
+        $html_message .= "<strong style='color: " . $brand_dark . ";'>" . $brand_name . "</strong><br/>";
+        $html_message .= "Need assistance? Contact our secure desk at <a href='mailto:" . $support_email . "' style='color: " . $brand_orange . "; text-decoration: none; font-weight: 600;'>" . $support_email . "</a>";
+        $html_message .= "</div>";
+        $html_message .= "</div>";
+        $html_message .= "</div>";
+
+        // Remove any actual carriage return and newline characters to prevent nl2br inside mail.php wrapper from injecting <br />
+        $html_message_clean = str_replace(["\r", "\n"], '', $html_message);
+
+        // Forward to mailer API
+        $payload = [
+            "name"    => $data['name'],
+            "email"   => $data['email'],
+            "subject" => $data['subject'],
+            "message" => $html_message_clean
+        ];
+
+        // Perform standard POST to bluevult mailer API
+        $ch = curl_init('https://bluevult.com/api/mail.php');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json'
+        ]);
+
+        $response = curl_exec($ch);
+        $err      = curl_error($ch);
+        curl_close($ch);
+
+        if ($err) {
+            json_response("error", "SMTP Mailer Error: " . $err);
+        }
+
+        $res_decoded = json_decode($response, true);
+        if ($res_decoded && isset($res_decoded['success']) && $res_decoded['success']) {
+            json_response("success", "Email successfully dispatched to " . $data['email']);
+        } else {
+            $msg = ($res_decoded && isset($res_decoded['error'])) ? $res_decoded['error'] : "SMTP dispatch failed";
+            json_response("error", $msg);
+        }
+        break;
+
     case 'admin_get_kyc_queue':
         $user = require_auth();
         if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
