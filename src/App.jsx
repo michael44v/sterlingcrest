@@ -31,8 +31,6 @@ import UserList from './pages/admin/UserList';
 import KYCQueue from './pages/admin/KYCQueue';
 import AMLQueue from './pages/admin/AMLQueue';
 import TransactionMonitor from './pages/admin/TransactionMonitor';
-import SwapProtocol from './pages/transfer/SwapProtocol';
-import SwapProtocols from './pages/admin/SwapProtocols';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -60,7 +58,6 @@ const App = () => {
           <Route path="/deposit" element={<ProtectedRoute><Deposit /></ProtectedRoute>} />
           <Route path="/account/card" element={<ProtectedRoute><VirtualCard /></ProtectedRoute>} />
           <Route path="/transfer/send" element={<ProtectedRoute><SendMoney /></ProtectedRoute>} />
-          <Route path="/transfer/swap" element={<ProtectedRoute><SwapProtocol /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
           <Route path="/history/statements" element={<ProtectedRoute><Statements /></ProtectedRoute>} />
           <Route path="/kyc" element={<ProtectedRoute><KYCStatus /></ProtectedRoute>} />
@@ -75,7 +72,6 @@ const App = () => {
             <Route index element={<AdminDashboard />} />
             <Route path="users" element={<UserList />} />
             <Route path="kyc" element={<KYCQueue />} />
-            <Route path="swap" element={<SwapProtocols />} />
             <Route path="transactions" element={<TransactionMonitor />} />
             <Route path="aml" element={<AMLQueue />} />
           </Route>

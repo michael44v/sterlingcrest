@@ -24,7 +24,6 @@ const AdminLayout = () => {
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard, end: true },
     { name: 'Users', path: '/admin/users', icon: Users },
     { name: 'KYC Queue', path: '/admin/kyc', icon: ShieldCheck },
-    { name: 'Swap Protocols', path: '/admin/swap', icon: RefreshCcw },
     { name: 'Transactions', path: '/admin/transactions', icon: Activity },
     { name: 'AML Flags', path: '/admin/aml', icon: AlertTriangle },
   ];
