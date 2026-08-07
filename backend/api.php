@@ -65,8 +65,22 @@ function json_response($status, $message, $data = []) {
 
 // Auth Middleware
 function require_auth() {
-    $headers = getallheaders();
-    $authHeader = $headers['Authorization'] ?? '';
+    $authHeader = '';
+    if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+        $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+    } elseif (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    } else {
+        $headers = getallheaders();
+        if ($headers) {
+            foreach ($headers as $key => $value) {
+                if (strtolower($key) === 'authorization') {
+                    $authHeader = $value;
+                    break;
+                }
+            }
+        }
+    }
 
     if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
         $token = $matches[1];
@@ -1122,6 +1136,172 @@ case 'get_transactions':
             json_response("success", "User status updated to " . $data['status']);
         } else {
             json_response("error", "Failed to update user status");
+        }
+        break;
+
+    case 'admin_create_user':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+
+        if (empty($data['full_name']) || empty($data['email']) || empty($data['phone']) || empty($data['password']) || empty($data['pin'])) {
+            json_response("error", "Missing required fields");
+        }
+
+        $db = Database::getInstance()->getConnection();
+
+        $stmt = $db->prepare("SELECT id FROM users WHERE email = ? OR phone = ?");
+        $stmt->bind_param("ss", $data['email'], $data['phone']);
+        $stmt->execute();
+        if ($stmt->get_result()->fetch_assoc()) {
+            json_response("error", "User with this email or phone already exists");
+        }
+
+        $password_hash = Security::hashData($data['password']);
+        $pin_hash = Security::hashData($data['pin']);
+        $status = !empty($data['status']) ? $data['status'] : 'active';
+        $kyc_tier = isset($data['kyc_tier']) ? (int)$data['kyc_tier'] : 1;
+        $initial_balance = isset($data['initial_balance']) ? (float)$data['initial_balance'] : 0.00;
+
+        $db->begin_transaction();
+        try {
+            $stmt = $db->prepare("INSERT INTO users (full_name, email, phone, password_hash, pin_hash, status, email_verified_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+            $stmt->bind_param("ssssss", $data['full_name'], $data['email'], $data['phone'], $password_hash, $pin_hash, $status);
+            $stmt->execute();
+            $user_id = $db->insert_id;
+
+            $account_number = str_pad(random_int(0, 9999999999), 10, '0', STR_PAD_LEFT);
+            $stmt = $db->prepare("INSERT INTO accounts (user_id, account_number, balance, ledger_balance, kyc_tier) VALUES (?, ?, ?, ?, ?)");
+            $stmt->bind_param("isddi", $user_id, $account_number, $initial_balance, $initial_balance, $kyc_tier);
+            $stmt->execute();
+            $account_id = $db->insert_id;
+
+            if ($initial_balance > 0) {
+                $ref = "ADJ" . time() . strtoupper(bin2hex(random_bytes(3)));
+                $stmt3 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, status) VALUES (?, 'credit', 'adjustment', ?, ?, 'Initial Balance', ?, 'completed')");
+                $stmt3->bind_param("idds", $account_id, $initial_balance, $initial_balance, $ref);
+                $stmt3->execute();
+            }
+
+            $db->commit();
+            json_response("success", "User account created successfully", ["user_id" => $user_id, "account_number" => $account_number]);
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Creation failed: " . $e->getMessage());
+        }
+        break;
+
+    case 'admin_seed_transactions':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id'])) {
+            json_response("error", "User ID required");
+        }
+
+        $base_date = !empty($data['base_date']) ? $data['base_date'] : date('Y-m-d');
+
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            // Get user's account
+            $stmt = $db->prepare("SELECT id, balance FROM accounts WHERE user_id = ?");
+            $stmt->bind_param("i", $data['user_id']);
+            $stmt->execute();
+            $acc = $stmt->get_result()->fetch_assoc();
+            if (!$acc) throw new Exception("Account not found");
+
+            $base_time = strtotime($base_date);
+            if ($base_time === false) {
+                $base_time = time();
+            }
+
+            $mocks = [
+                ['type' => 'credit', 'channel' => 'deposit', 'amount' => 1500.00, 'narration' => 'Initial Wire Transfer Credit', 'days_offset' => -6],
+                ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 48.62, 'narration' => "Kat's Bakery", 'days_offset' => -5],
+                ['type' => 'debit', 'channel' => 'fee', 'amount' => 9.99, 'narration' => 'Bundle TV Subscription', 'days_offset' => -4],
+                ['type' => 'credit', 'channel' => 'deposit', 'amount' => 2500.00, 'narration' => 'Monthly Salary Credit', 'days_offset' => -3],
+                ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 124.50, 'narration' => 'Amazon UK Marketplace', 'days_offset' => -2],
+                ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 114.47, 'narration' => 'Starling Transfer to Vault', 'days_offset' => -1],
+                ['type' => 'credit', 'channel' => 'deposit', 'amount' => 82.20, 'narration' => 'Refund Amazon UK', 'days_offset' => 0],
+            ];
+
+            // Clear existing transactions for this account to avoid duplicate keys/references and keep the history clean
+            $stmt_del = $db->prepare("DELETE FROM transactions WHERE account_id = ?");
+            $stmt_del->bind_param("i", $acc['id']);
+            $stmt_del->execute();
+
+            $current_balance = 0.00;
+            foreach ($mocks as $idx => $m) {
+                if ($m['type'] === 'credit') {
+                    $current_balance += $m['amount'];
+                } else {
+                    $current_balance -= $m['amount'];
+                }
+
+                $tx_time = $base_time + ($m['days_offset'] * 86400);
+                $tx_date = date('Y-m-d H:i:s', $tx_time);
+                $ref = "TXN" . $tx_time . $idx . strtoupper(bin2hex(random_bytes(2)));
+
+                $stmt_ins = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, created_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed')");
+                $stmt_ins->bind_param("issddsss", $acc['id'], $m['type'], $m['channel'], $m['amount'], $current_balance, $m['narration'], $ref, $tx_date);
+                $stmt_ins->execute();
+            }
+
+            // Update account balance
+            $stmt_up = $db->prepare("UPDATE accounts SET balance = ?, ledger_balance = ? WHERE id = ?");
+            $stmt_up->bind_param("ddi", $current_balance, $current_balance, $acc['id']);
+            $stmt_up->execute();
+
+            $db->commit();
+            json_response("success", "Realistic transaction history seeded successfully!", ["final_balance" => $current_balance]);
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Seeding failed: " . $e->getMessage());
+        }
+        break;
+
+    case 'admin_reset_password':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id']) || empty($data['password'])) {
+            json_response("error", "Missing fields");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $password_hash = Security::hashData($data['password']); // Plaintext because of Security.php updates
+
+        $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        $stmt->bind_param("si", $password_hash, $data['user_id']);
+        if ($stmt->execute()) {
+            json_response("success", "Password reset successfully");
+        } else {
+            json_response("error", "Failed to reset password");
+        }
+        break;
+
+    case 'admin_reset_pin':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id']) || empty($data['pin'])) {
+            json_response("error", "Missing fields");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $pin_hash = Security::hashData($data['pin']); // Plaintext because of Security.php updates
+
+        $stmt = $db->prepare("UPDATE users SET pin_hash = ? WHERE id = ?");
+        $stmt->bind_param("si", $pin_hash, $data['user_id']);
+        if ($stmt->execute()) {
+            json_response("success", "Transaction PIN reset successfully");
+        } else {
+            json_response("error", "Failed to reset transaction PIN");
         }
         break;
 

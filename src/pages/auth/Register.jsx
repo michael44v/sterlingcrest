@@ -11,7 +11,7 @@ const LogoRow = ({ subtitle }) => (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
       <div style={{
         width: 34, height: 34,
-        background: 'linear-gradient(135deg, #117ACA, #0A2D5A)',
+        background: 'linear-gradient(135deg, #0d9488, #022c22)',
         borderRadius: 9,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
@@ -20,7 +20,7 @@ const LogoRow = ({ subtitle }) => (
           <polyline points="9 22 9 12 15 12 15 22" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
-      <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#0A2D5A', letterSpacing: '-0.4px' }}>
+      <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#022c22', letterSpacing: '-0.4px' }}>
         NorthBridge Bank
       </span>
     </div>
@@ -54,12 +54,12 @@ const Field = ({ label, type = 'text', placeholder, value, onChange, name }) => 
           padding: '13px 15px',
           fontSize: 14, fontFamily: '"DM Sans", sans-serif',
           background: 'rgba(255,255,255,0.9)',
-          border: `1.5px solid ${focused ? '#117ACA' : '#D8E4F0'}`,
+          border: `1.5px solid ${focused ? '#0d9488' : '#cbd5e1'}`,
           borderRadius: 11,
           outline: 'none',
-          color: '#0A2D5A',
+          color: '#022c22',
           transition: 'border-color 0.2s, box-shadow 0.2s',
-          boxShadow: focused ? '0 0 0 3px rgba(17,122,202,0.12)' : 'none',
+          boxShadow: focused ? '0 0 0 3px rgba(13,148,136,0.12)' : 'none',
         }}
       />
     </div>
@@ -110,7 +110,7 @@ const Register = () => {
   return (
     <div style={{
       minHeight: '100vh', width: '100%',
-      background: 'linear-gradient(170deg, #EBF3FB 0%, #F5F8FF 45%, #EEF3FF 100%)',
+      background: 'linear-gradient(170deg, #f0fdfa 0%, #f0fdf4 45%, #ccfbf1 100%)',
       fontFamily: '"DM Sans", sans-serif',
       display: 'flex', flexDirection: 'column',
       position: 'relative', overflow: 'hidden',
@@ -149,12 +149,12 @@ const Register = () => {
             <div key={f.label} style={{
               flexShrink: 0,
               background: 'rgba(255,255,255,0.78)',
-              border: '1px solid rgba(17,122,202,0.13)',
+            border: '1px solid rgba(13,148,136,0.13)',
               borderRadius: 100, padding: '5px 11px',
               display: 'flex', alignItems: 'center', gap: 5,
             }}>
               <span style={{ fontSize: 13 }}>{f.icon}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#0A2D5A', whiteSpace: 'nowrap' }}>{f.label}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#022c22', whiteSpace: 'nowrap' }}>{f.label}</span>
             </div>
           ))}
         </div>
@@ -165,14 +165,14 @@ const Register = () => {
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderRadius: 22,
-          border: '1px solid rgba(17,122,202,0.13)',
+          border: '1px solid rgba(13,148,136,0.13)',
           padding: '26px 22px 22px',
-          boxShadow: '0 20px 60px rgba(10,45,90,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
+          boxShadow: '0 20px 60px rgba(2,44,34,0.10), 0 1px 0 rgba(255,255,255,0.8) inset',
         }}>
           {/* Header row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
             <div>
-              <h1 style={{ fontSize: 22, fontWeight: 800, color: '#0A2D5A', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, color: '#022c22', margin: '0 0 3px', letterSpacing: '-0.4px' }}>
                 Create account
               </h1>
               <p style={{ fontSize: 13, color: '#7A8AA8', margin: 0 }}>
@@ -185,7 +185,7 @@ const Register = () => {
                 <div key={s} style={{
                   width: s === step ? 18 : 7, height: 7,
                   borderRadius: 100,
-                  background: s === step ? '#117ACA' : '#D8E4F0',
+                  background: s === step ? '#0d9488' : '#cbd5e1',
                   transition: 'all 0.3s',
                 }} />
               ))}
@@ -209,13 +209,13 @@ const Register = () => {
                   style={{
                     width: '100%', padding: '15px', marginTop: 4,
                     background: step1Complete
-                      ? 'linear-gradient(135deg, #117ACA 0%, #0A2D5A 100%)'
-                      : '#C8DCF0',
+                      ? 'linear-gradient(135deg, #0d9488 0%, #022c22 100%)'
+                      : '#cbd5e1',
                     color: 'white', border: 'none', borderRadius: 13,
                     fontSize: 15, fontWeight: 800,
                     cursor: step1Complete ? 'pointer' : 'default',
                     fontFamily: '"DM Sans", sans-serif',
-                    boxShadow: step1Complete ? '0 8px 24px rgba(17,122,202,0.25)' : 'none',
+                    boxShadow: step1Complete ? '0 8px 24px rgba(13,148,136,0.25)' : 'none',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                   }}
                 >
@@ -249,20 +249,20 @@ const Register = () => {
                 {/* Terms */}
                 <div style={{
                   display: 'flex', gap: 9, alignItems: 'flex-start',
-                  padding: '11px', background: 'rgba(17,122,202,0.04)',
-                  borderRadius: 10, border: '1px solid rgba(17,122,202,0.10)',
+                  padding: '11px', background: 'rgba(13,148,136,0.04)',
+                  borderRadius: 10, border: '1px solid rgba(13,148,136,0.10)',
                   marginBottom: 18,
                 }}>
                   <input
                     type="checkbox"
                     required
-                    style={{ marginTop: 2, accentColor: '#117ACA', width: 15, height: 15, flexShrink: 0 }}
+                    style={{ marginTop: 2, accentColor: '#0d9488', width: 15, height: 15, flexShrink: 0 }}
                   />
                   <span style={{ fontSize: 11, color: '#5A6A8A', lineHeight: 1.55 }}>
                     I agree to the{' '}
-                    <Link to="/terms" style={{ color: '#117ACA', fontWeight: 700 }}>Terms of Service</Link>
+                    <Link to="/terms" style={{ color: '#0d9488', fontWeight: 700 }}>Terms of Service</Link>
                     {' '}and{' '}
-                    <Link to="/privacy" style={{ color: '#117ACA', fontWeight: 700 }}>Privacy Policy</Link>
+                    <Link to="/privacy" style={{ color: '#0d9488', fontWeight: 700 }}>Privacy Policy</Link>
                     , and consent to NorthBridge verifying my identity.
                   </span>
                 </div>
@@ -274,8 +274,8 @@ const Register = () => {
                     onClick={() => setStep(1)}
                     style={{
                       flex: '0 0 46px', padding: '15px 0',
-                      background: 'transparent', color: '#0A2D5A',
-                      border: '1.5px solid #C8DCF0', borderRadius: 13,
+                      background: 'transparent', color: '#022c22',
+                      border: '1.5px solid #a7f3d0', borderRadius: 13,
                       fontSize: 17, cursor: 'pointer', fontWeight: 700,
                       fontFamily: '"DM Sans", sans-serif',
                     }}
@@ -289,11 +289,11 @@ const Register = () => {
                     disabled={loading}
                     style={{
                       flex: 1, padding: '15px',
-                      background: loading ? '#6BA5D4' : 'linear-gradient(135deg, #117ACA 0%, #0A2D5A 100%)',
+                      background: loading ? '#6dbaaf' : 'linear-gradient(135deg, #0d9488 0%, #022c22 100%)',
                       color: 'white', border: 'none', borderRadius: 13,
                       fontSize: 15, fontWeight: 800,
                       cursor: loading ? 'default' : 'pointer',
-                      boxShadow: '0 8px 24px rgba(17,122,202,0.30)',
+                      boxShadow: '0 8px 24px rgba(13,148,136,0.30)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                       fontFamily: '"DM Sans", sans-serif',
                     }}
@@ -321,7 +321,7 @@ const Register = () => {
         {/* Footer link */}
         <div style={{ textAlign: 'center', marginTop: 18 }}>
           <span style={{ fontSize: 13, color: '#7A8AA8' }}>Already have an account? </span>
-          <Link to="/login" style={{ fontSize: 13, fontWeight: 800, color: '#117ACA', textDecoration: 'none' }}>
+          <Link to="/login" style={{ fontSize: 13, fontWeight: 800, color: '#0d9488', textDecoration: 'none' }}>
             Sign in
           </Link>
         </div>

@@ -4,13 +4,20 @@ import { useAuth } from '../../context/AuthContext';
 import { LayoutDashboard, Users, ShieldCheck, Activity, AlertTriangle, ArrowLeft, Menu, X, RefreshCcw } from 'lucide-react';
 
 const AdminLayout = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Strict role check
-  console.log(user?.role);
-  if (user?.role !== 'admin' && user?.role !== 'super_admin') {
-    //return <Navigate to="/dashboard" replace />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-chase-navy text-white font-bold">
+        Loading admin panel...
+      </div>
+    );
+  }
+
+  // Strict role & auth check
+  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+    return <Navigate to="/login" replace />;
   }
 
   const navItems = [

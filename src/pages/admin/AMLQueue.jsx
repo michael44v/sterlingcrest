@@ -84,7 +84,7 @@ const AMLQueue = () => {
                       </div>
                       <div>
                         <p className="text-xs text-gray-400">Amount</p>
-                        <p className="text-sm font-bold text-red-600">${parseFloat(flag.amount).toLocaleString()}</p>
+                        <p className="text-sm font-bold text-red-600">£{parseFloat(flag.amount).toLocaleString()}</p>
                       </div>
                     </div>
 

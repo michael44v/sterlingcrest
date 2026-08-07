@@ -8,11 +8,11 @@ export default {
     extend: {
       colors: {
         chase: {
-          blue: '#117ACA',
-          navy: '#0A2D5A',
-          light: '#E8F4FC',
-          mid: '#1A6BB5',
-          border: '#C8DCF0',
+          blue: '#0d9488',   // Vibrant Teal 600
+          navy: '#022c22',   // Deep Forest Emerald 950
+          light: '#f0fdf4',  // Light Emerald Tint 50
+          mid: '#0f766e',    // Secondary Dark Teal 700
+          border: '#a7f3d0', // Subtle Green/Emerald 200
         },
       },
     },

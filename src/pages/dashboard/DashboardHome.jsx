@@ -115,8 +115,8 @@ const DashboardHome = () => {
         <div
           className="relative rounded-3xl overflow-hidden p-7"
           style={{
-            background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 40%, #1d4ed8 100%)',
-            boxShadow: '0 8px 32px rgba(30,64,175,0.25)',
+            background: 'linear-gradient(135deg, #0d9488 0%, #0f766e 40%, #022c22 100%)',
+            boxShadow: '0 8px 32px rgba(13,148,136,0.25)',
           }}
         >
           {/* inner glow */}
@@ -140,7 +140,7 @@ const DashboardHome = () => {
               ) : (
                 <div className="flex items-center gap-3">
                   <h2 className="text-4xl font-black tracking-tight text-white">
-                    {showBalance ? formatUSD(data?.balance ?? 0) : '$ ••••••'}
+                    {showBalance ? formatUSD(data?.balance ?? 0) : '£ ••••••'}
                   </h2>
                   <button
                     onClick={() => setShowBalance(!showBalance)}
