@@ -195,10 +195,38 @@ const SendMoney = () => {
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-chase-navy">
-          {transferType === 'external' ? 'E Transfer' : 'Send Money'}
+          {transferType === 'external' ? 'International Transfer' : 'Local Transfer'}
         </h1>
         <p className="text-gray-500">Transfer funds securely</p>
       </div>
+
+      {/* Tabs at the top of the Transfer page */}
+      {step === 1 && (
+        <div className="flex bg-gray-100 p-1.5 rounded-2xl mb-8 max-w-md mx-auto border border-gray-200 shadow-sm">
+          <button
+            type="button"
+            onClick={() => navigate('/transfer/send?type=internal')}
+            className={`flex-1 py-3 text-center text-sm font-bold rounded-xl transition-all ${
+              transferType === 'internal'
+                ? 'bg-chase-blue text-white shadow-md'
+                : 'text-gray-500 hover:text-chase-navy'
+            }`}
+          >
+            Local Transfer
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/transfer/send?type=external')}
+            className={`flex-1 py-3 text-center text-sm font-bold rounded-xl transition-all ${
+              transferType === 'external'
+                ? 'bg-chase-blue text-white shadow-md'
+                : 'text-gray-500 hover:text-chase-navy'
+            }`}
+          >
+            International Transfer
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-chase-border shadow-lg p-8">
         {step === 1 && (
@@ -238,7 +266,7 @@ const SendMoney = () => {
 
             <div className="relative">
               <Input
-                label={transferType === 'internal' ? "Recipient Account Number" : "External Account Number"}
+                label={transferType === 'internal' ? "Local Account Number" : "International Account Number"}
                 placeholder="10-digit account number"
                 value={formData.account_number}
                 onChange={(e) => {
@@ -403,7 +431,7 @@ const SendMoney = () => {
             </div>
             <h2 className="text-2xl font-black text-chase-navy mb-4 uppercase tracking-tight">SWAP PROTOCOL REQUIRED</h2>
             <p className="text-gray-600 mb-8 leading-relaxed">
-              To complete this {swapType} transfer, a usdt swap protocol is required.
+              To complete this {swapType === 'internal' ? 'local' : 'international'} transfer, a usdt swap protocol is required.
             </p>
             <div className="space-y-3">
               <Button onClick={() => navigate(`/transfer/swap?type=${swapType}`)} className="w-full py-4 text-lg shadow-lg shadow-chase-blue/20">

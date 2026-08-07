@@ -84,7 +84,7 @@ const DashboardHome = () => {
       <div
         className="relative px-6 pt-6 pb-8"
         style={{
-          background: 'linear-gradient(180deg, #14b8a6 0%, #0d9488 40%, #0f766e 100%)',
+          background: 'linear-gradient(180deg, #f97316 0%, #fe820e 40%, #ea580c 100%)',
         }}
       >
         {/* Top bar */}

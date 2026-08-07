@@ -91,7 +91,7 @@ const ForgotPassword = () => {
             <div className="bg-chase-light/50 p-6 rounded-2xl border border-chase-border/50">
               <h4 className="text-sm font-black uppercase tracking-widest text-chase-navy mb-2">Need help?</h4>
               <p className="text-sm text-gray-500">
-                If you no longer have access to this email, please contact our 24/7 priority support at <span className="text-chase-blue font-bold">support@northbridge.com</span>
+                If you no longer have access to this email, please contact our 24/7 priority support at <span className="text-chase-blue font-bold">support@starlingcrestfinance.com</span>
               </p>
             </div>
           </div>

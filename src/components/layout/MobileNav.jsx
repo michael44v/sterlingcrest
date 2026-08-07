@@ -1,12 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, SendHorizontal, History, User, Globe } from 'lucide-react';
+import { LayoutDashboard, SendHorizontal, History, User } from 'lucide-react';
 
 const MobileNav = () => {
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Transfer', path: '/transfer/send', icon: SendHorizontal },
-    { name: 'E Transfer', path: '/transfer/send?type=external', icon: Globe },
     { name: 'History', path: '/history', icon: History },
     { name: 'Profile', path: '/profile', icon: User },
   ];

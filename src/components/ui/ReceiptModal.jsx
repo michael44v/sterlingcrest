@@ -58,7 +58,7 @@ const ReceiptModal = ({ transaction, onClose }) => {
   // ── WhatsApp share ──────────────────────────────────────────────────────────
   const handleShareWhatsApp = () => {
     const text = [
-      'Transaction Receipt — SterLingCrest Finance',
+      'Transaction Receipt — Starling Crest Finance',
       '',
       `From : ${senderName} (${senderAcct || 'N/A'})`,
       `To   : ${recipientName} (${recipientAcct || 'N/A'})`,
@@ -153,7 +153,7 @@ const ReceiptModal = ({ transaction, onClose }) => {
                   transform: 'rotate(-30deg)',
                   padding: '6px 0', userSelect: 'none',
                 }}>
-                   SterLingCrest Finance &nbsp;&nbsp; SterLingCrest Finance &nbsp;&nbsp; SterLingCrest Finance
+                   Starling Crest Finance &nbsp;&nbsp; Starling Crest Finance &nbsp;&nbsp; Starling Crest Finance
                 </span>
               ))}
             </div>
@@ -174,7 +174,7 @@ const ReceiptModal = ({ transaction, onClose }) => {
                         fontFamily: "'Playfair Display', serif",
                         fontSize: 14, fontWeight: 700,
                         letterSpacing: '2.5px', color: '#fff',
-                      }}>SterLingCrest Finance</span>
+                      }}>Starling Crest Finance</span>
                     )}
                     <div style={{
                       width: 22, height: 22, border: '1.5px solid rgba(255,255,255,0.45)',
@@ -296,7 +296,7 @@ const ReceiptModal = ({ transaction, onClose }) => {
                 NBB SECURE
               </span>
               <span style={{ fontSize: 7.5, color: s.gold, letterSpacing: '1px' }}>
-                SterLingCrest Finance
+                Starling Crest Finance
               </span>
             </div>
           </div>
