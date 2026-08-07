@@ -4,7 +4,7 @@ const instance = axios.create({
  // baseURL: 'http://localhost:80/backend/northbridge/api.php',
 
 
-  baseURL: 'https://bluevult.com/api/north/api.php',
+  baseURL: 'https://bluevult.com/api/sterlingbank/api.php',
   headers: {
     'Content-Type': 'application/json',
   },

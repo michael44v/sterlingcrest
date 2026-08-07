@@ -30,7 +30,7 @@ const AccountDetails = () => {
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold text-chase-navy">Account Details</h1>
-          <p className="text-gray-500">Manage your NorthBridge USD current account</p>
+          <p className="text-gray-500">Manage your SterLingCrest Finance USD current account</p>
         </div>
         <div className="flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg border border-green-200">
           <ShieldCheck size={18} />

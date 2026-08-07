@@ -84,7 +84,7 @@ const Deposit = () => {
     <div className="max-w-2xl mx-auto">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-chase-navy">Fund Account</h1>
-        <p className="text-gray-500">Add funds to your NorthBridge USD account</p>
+        <p className="text-gray-500">Add funds to your SterLingCrest Finance USD account</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-chase-border shadow-lg overflow-hidden">
@@ -195,8 +195,8 @@ const Deposit = () => {
 
             <div className="space-y-4">
               {[
-                { label: 'Bank Name', value: 'NorthBridge Partner Bank' },
-                { label: 'Account Name', value: 'NorthBridge Settlements' },
+                { label: 'Bank Name', value: 'SterLingCrest Finance Partner Bank' },
+                { label: 'Account Name', value: 'SterLingCrest Finance Settlements' },
                 { label: 'Account Number', value: '9876543210' },
                 { label: 'Routing Number', value: '123456789' },
                 { label: 'Reference', value: 'DEP-' + Math.random().toString(36).substring(7).toUpperCase() },

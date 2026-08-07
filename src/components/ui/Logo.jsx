@@ -12,7 +12,7 @@ const Logo = ({ className = "h-8 w-auto", color = "#0A2D5A" }) => {
         <circle cx="20" cy="18" r="4" fill={color}/>
       </svg>
       <span className="font-bold text-xl tracking-tight" style={{ color }}>
-        North<span className="text-chase-blue">Bridge Bank</span>
+        SterLingCrest <span className="text-chase-blue">SterLingCrest Finance</span>
       </span>
     </div>
   );

@@ -21,7 +21,7 @@ const LogoRow = ({ subtitle }) => (
         </svg>
       </div>
       <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#022c22', letterSpacing: '-0.4px' }}>
-        NorthBridge
+        SterLingCrest Finance
       </span>
     </div>
     <p style={{ fontSize: 10, color: '#6B7A99', margin: 0, fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>
@@ -164,7 +164,7 @@ const Login = () => {
             Welcome back
           </h1>
           <p style={{ fontSize: 13, color: '#7A8AA8', margin: '0 0 22px' }}>
-            Sign in to your NorthBridge account
+            Sign in to Sterling Crest Finance
           </p>
 
           <form onSubmit={handleSubmit}>

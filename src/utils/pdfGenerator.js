@@ -16,7 +16,7 @@ export const generateStatement = (data) => {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.text('NorthBridge Bank', 15, 25);
+  doc.text('SterLingCrest Finance', 15, 25);
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -95,5 +95,5 @@ export const generateStatement = (data) => {
     doc.text(`Page ${i} of ${pageCount}`, 195, 285, { align: 'right' });
   }
 
-  doc.save(`NorthBridge_Statement_${account.accountNumber}_${period.to}.pdf`);
+  doc.save(`SterLingCrest Finance_Statement_${account.accountNumber}_${period.to}.pdf`);
 };

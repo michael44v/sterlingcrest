@@ -21,7 +21,7 @@ const LogoRow = ({ subtitle }) => (
         </svg>
       </div>
       <span style={{ fontFamily: '"DM Sans", sans-serif', fontWeight: 800, fontSize: 19, color: '#022c22', letterSpacing: '-0.4px' }}>
-        NorthBridge Bank
+      SterLingCrest Finance
       </span>
     </div>
     <p style={{ fontSize: 10, color: '#6B7A99', margin: 0, fontFamily: '"DM Sans", sans-serif', letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>
@@ -263,7 +263,7 @@ const Register = () => {
                     <Link to="/terms" style={{ color: '#0d9488', fontWeight: 700 }}>Terms of Service</Link>
                     {' '}and{' '}
                     <Link to="/privacy" style={{ color: '#0d9488', fontWeight: 700 }}>Privacy Policy</Link>
-                    , and consent to NorthBridge verifying my identity.
+                    , and consent to SterLingCrest Finance verifying my identity.
                   </span>
                 </div>
 
