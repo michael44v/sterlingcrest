@@ -261,7 +261,84 @@ const SendMoney = () => {
                         value={formData.manual_bank_name}
                         onChange={(e) => setFormData({...formData, manual_bank_name: e.target.value})}
                         required
+                        list="global-banks"
                     />
+                    <datalist id="global-banks">
+                        {/* Prioritized Turkish Banks */}
+                        <option value="Türkiye Cumhuriyeti Ziraat Bankası" />
+                        <option value="Türkiye İş Bankası" />
+                        <option value="Türkiye Garanti Bankası" />
+                        <option value="Akbank" />
+                        <option value="Yapı ve Kredi Bankası" />
+                        <option value="Türkiye Halk Bankası" />
+                        <option value="Türkiye Vakıflar Bankası" />
+                        <option value="QNB Finansbank" />
+                        <option value="DenizBank" />
+                        <option value="Kuveyt Türk Katılım Bankası" />
+                        <option value="Albaraka Türk Katılım Bankası" />
+                        <option value="Türkiye Finans Katılım Bankası" />
+                        <option value="Türk Ekonomi Bankası (TEB)" />
+                        <option value="ING Bank (Turkey)" />
+                        <option value="HSBC Turkey" />
+                        <option value="ICBC Turkey" />
+                        <option value="Alternatif Bank" />
+                        <option value="Anadolubank" />
+                        <option value="Burgan Bank (Turkey)" />
+                        <option value="Fibabanka" />
+                        <option value="Şekerbank" />
+                        <option value="Odeabank" />
+                        {/* Major Global Banks */}
+                        <option value="JPMorgan Chase Bank" />
+                        <option value="Bank of America" />
+                        <option value="Citigroup" />
+                        <option value="Wells Fargo Bank" />
+                        <option value="Goldman Sachs Bank" />
+                        <option value="Morgan Stanley Bank" />
+                        <option value="Barclays Bank" />
+                        <option value="HSBC Bank" />
+                        <option value="Standard Chartered Bank" />
+                        <option value="Royal Bank of Scotland" />
+                        <option value="Lloyds Bank" />
+                        <option value="BNP Paribas" />
+                        <option value="Société Générale" />
+                        <option value="Crédit Agricole" />
+                        <option value="Deutsche Bank" />
+                        <option value="Commerzbank" />
+                        <option value="UBS Bank" />
+                        <option value="Credit Suisse" />
+                        <option value="Banco Santander" />
+                        <option value="BBVA" />
+                        <option value="Intesa Sanpaolo" />
+                        <option value="UniCredit" />
+                        <option value="ING Bank" />
+                        <option value="Rabobank" />
+                        <option value="ABN AMRO Bank" />
+                        <option value="Royal Bank of Canada" />
+                        <option value="Toronto-Dominion Bank (TD)" />
+                        <option value="Bank of Nova Scotia (Scotiabank)" />
+                        <option value="Bank of Montreal (BMO)" />
+                        <option value="Canadian Imperial Bank of Commerce (CIBC)" />
+                        <option value="Commonwealth Bank of Australia" />
+                        <option value="Westpac Banking Corporation" />
+                        <option value="Australia and New Zealand Banking Group (ANZ)" />
+                        <option value="National Australia Bank" />
+                        <option value="Mitsubishi UFJ Financial Group" />
+                        <option value="Sumitomo Mitsui Financial Group" />
+                        <option value="Mizuho Financial Group" />
+                        <option value="DBS Bank" />
+                        <option value="OCBC Bank" />
+                        <option value="United Overseas Bank (UOB)" />
+                        <option value="Sberbank" />
+                        <option value="VTB Bank" />
+                        <option value="State Bank of India" />
+                        <option value="HDFC Bank" />
+                        <option value="ICICI Bank" />
+                        <option value="Itaú Unibanco" />
+                        <option value="Banco do Brasil" />
+                        <option value="Standard Bank" />
+                        <option value="FirstRand Bank" />
+                        <option value="ABSA Group" />
+                    </datalist>
 
                     <div className="space-y-2">
                         <label className="block text-sm font-bold text-chase-navy uppercase tracking-wider">Receiving Country</label>
@@ -273,7 +350,7 @@ const SendMoney = () => {
                         >
                             <option value="">-- Select Country --</option>
                             {[
-                                'United Kingdom', 'Canada', 'Germany', 'Australia', 'Japan',
+                                'Turkey', 'United Kingdom', 'Canada', 'Germany', 'Australia', 'Japan',
                                 'United Arab Emirates', 'Saudi Arabia', 'Singapore', 'France',
                                 'Switzerland', 'South Africa', 'China', 'Russia', 'India',
                                 'Brazil', 'Mexico', 'Spain', 'Italy', 'United States'
