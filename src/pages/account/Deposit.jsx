@@ -7,47 +7,9 @@ import api from '../../api/axios';
 
 const Deposit = () => {
   const [method, setMethod] = useState(null);
-  const [swapStatus, setSwapStatus] = useState(null);
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
-
-  useEffect(() => {
-    const checkSwapStatus = async () => {
-        try {
-            const res = await api.get('?action=check_swap_protocol_status&type=internal');
-            setSwapStatus(res.data.data);
-        } catch (e) {
-            console.error('Failed to check swap status');
-        }
-    };
-    checkSwapStatus();
-  }, []);
-
-  const handleReceiptUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setLoading(true);
-    try {
-        // Simulate upload
-        const res = await api.post('?action=upload_swap_receipt', {
-            receipt_url: 'https://cloudinary.com/receipt.jpg'
-        });
-        if (res.data.status === 'success') {
-            toast.success('Receipt uploaded successfully');
-            // Refresh status
-            const statusRes = await api.get('?action=check_swap_protocol_status&type=internal');
-            setSwapStatus(statusRes.data.data);
-        } else {
-            toast.error(res.data.message);
-        }
-    } catch (err) {
-        toast.error('Upload failed');
-    } finally {
-        setLoading(false);
-    }
-  };
 
   const handleDeposit = async (e) => {
     e.preventDefault();
@@ -88,50 +50,6 @@ const Deposit = () => {
       </div>
 
       <div className="bg-white rounded-2xl border border-chase-border shadow-lg overflow-hidden">
-        {step === 1 && (
-          <div className="p-8 space-y-8 border-b border-chase-border">
-            <div className="flex items-center gap-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                <div className="p-3 bg-amber-100 text-amber-600 rounded-xl">
-                    <Upload size={24} />
-                </div>
-                <div className="flex-1">
-                    <h3 className="font-bold text-chase-navy">Swap Protocol Receipt</h3>
-                    <p className="text-xs text-gray-500">Upload your USDT swap payment receipt here.</p>
-                </div>
-            </div>
-
-            {swapStatus?.attempt_count > 1 && (swapStatus?.is_expired || !swapStatus?.has_receipt) && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-600">
-                    <AlertCircle size={20} />
-                    <p className="text-sm font-bold">The USDT was not enough the second time, please upload a new receipt.</p>
-                </div>
-            )}
-
-            <div className="relative group">
-                <input
-                    type="file"
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
-                    onChange={handleReceiptUpload}
-                    disabled={loading}
-                />
-                <div className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center group-hover:border-chase-blue transition-all bg-gray-50/50">
-                    <Upload className="mx-auto text-gray-400 group-hover:text-chase-blue mb-2" size={32} />
-                    <p className="text-sm font-medium text-gray-600">
-                        {loading ? 'Uploading...' : swapStatus?.has_receipt ? 'Upload a new receipt' : 'Click to upload payment receipt'}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">Supports JPG, PNG or PDF</p>
-                </div>
-            </div>
-
-            {swapStatus?.has_receipt && !swapStatus?.is_expired && (
-                <div className="flex items-center gap-2 text-green-600 text-sm font-bold">
-                    <CheckCircle2 size={16} />
-                    Receipt uploaded and pending verification (valid for 5h)
-                </div>
-            )}
-          </div>
-        )}
-
         {step === 1 && (
           <div className="p-8 space-y-8">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

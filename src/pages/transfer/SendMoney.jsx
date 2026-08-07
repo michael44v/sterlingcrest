@@ -20,8 +20,6 @@ const SendMoney = () => {
   const [recipient, setRecipient] = useState(null);
   const [userTier, setUserTier] = useState(null);
   const [banks, setBanks] = useState([]);
-  const [showSwapModal, setShowSwapModal] = useState(false);
-  const [swapType, setSwapType] = useState('internal');
   
   const [formData, setFormData] = useState({
     account_number: '',
@@ -29,9 +27,13 @@ const SendMoney = () => {
     narration: '',
     pin: '',
     confirm_name: '',
-    bank_id: '',
+    bank_id: 'other',
     manual_bank_name: '',
-    manual_account_name: user?.full_name || ''
+    manual_account_name: user?.full_name || '',
+    country: '',
+    swift_code: '',
+    transaction_type: 'WIRE-TRANSFER',
+    purpose: ''
   });
 
   useEffect(() => {
@@ -72,9 +74,13 @@ const SendMoney = () => {
         narration: '',
         pin: '',
         confirm_name: '',
-        bank_id: '',
+        bank_id: 'other',
         manual_bank_name: '',
-        manual_account_name: user?.full_name || ''
+        manual_account_name: user?.full_name || '',
+        country: '',
+        swift_code: '',
+        transaction_type: 'WIRE-TRANSFER',
+        purpose: ''
     }));
   }, [typeParam]);
 
@@ -113,15 +119,6 @@ const SendMoney = () => {
     }
   };
 
-  const checkSwapProtocol = async (type) => {
-    try {
-        const response = await api.get(`?action=check_swap_protocol_status&type=${type}`);
-        return response.data.status === 'success';
-    } catch (e) {
-        return false;
-    }
-  };
-
   const saveBeneficiary = async () => {
     try {
       await api.post('?action=add_beneficiary', {
@@ -137,30 +134,48 @@ const SendMoney = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (transferType === 'internal' && userTier === 1) {
-      setSwapType('internal');
-      setShowSwapModal(true);
-      return;
-    }
-
-    if (transferType === 'external') {
-        const isApproved = await checkSwapProtocol('external');
-        if (!isApproved) {
-            setSwapType('external');
-            setShowSwapModal(true);
-            return;
+    if (step === 1) {
+      if (transferType === 'internal') {
+        if (!recipient) {
+          toast.error('Please enter a valid local account number');
+          return;
         }
-    }
-
-    if (step === 1 && recipient) {
-      if (parseFloat(formData.amount) > 200000) {
-        return setStep(1.5); // Large amount confirmation step
+        if (parseFloat(formData.amount) > 200000) {
+          return setStep(1.5); // Large amount confirmation step
+        }
+        return setStep(2);
+      } else {
+        // External transfer: validate manual fields
+        if (!formData.manual_bank_name) {
+          toast.error('Please enter Bank Name');
+          return;
+        }
+        if (!formData.country) {
+          toast.error('Please select Country');
+          return;
+        }
+        if (!formData.swift_code) {
+          toast.error('Please enter SWIFT Code');
+          return;
+        }
+        if (!formData.manual_account_name) {
+          toast.error('Please enter Account Name');
+          return;
+        }
+        if (!formData.account_number) {
+          toast.error('Please enter Account Number');
+          return;
+        }
+        if (!formData.amount || parseFloat(formData.amount) <= 0) {
+          toast.error('Please enter a valid amount');
+          return;
+        }
+        return setStep(2);
       }
-      return setStep(2);
     }
 
     if (step === 1.5) {
-      if (formData.confirm_name.trim().toLowerCase() !== recipient.account_holder_name.toLowerCase()) {
+      if (formData.confirm_name.trim().toLowerCase() !== recipient?.account_holder_name.toLowerCase()) {
         toast.error('Account name does not match');
         return;
       }
@@ -177,7 +192,11 @@ const SendMoney = () => {
         transfer_type: transferType,
         bank_id: formData.bank_id,
         manual_bank_name: formData.manual_bank_name,
-        manual_account_name: formData.manual_account_name
+        manual_account_name: formData.manual_account_name,
+        country: formData.country,
+        swift_code: formData.swift_code,
+        transaction_type: formData.transaction_type,
+        purpose: formData.purpose
       });
       if (response.data.status === 'success') {
         setStep(3);
@@ -236,31 +255,57 @@ const SendMoney = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             {transferType === 'external' && (
                 <div className="space-y-4">
+                    <Input
+                        label="Bank Name"
+                        placeholder="Full name of the receiving bank"
+                        value={formData.manual_bank_name}
+                        onChange={(e) => setFormData({...formData, manual_bank_name: e.target.value})}
+                        required
+                    />
+
                     <div className="space-y-2">
-                        <label className="block text-sm font-bold text-chase-navy uppercase tracking-wider">Select Destination Bank</label>
+                        <label className="block text-sm font-bold text-chase-navy uppercase tracking-wider">Receiving Country</label>
                         <select 
                             className="w-full px-4 py-3 bg-gray-50 border border-chase-border rounded-xl focus:ring-2 focus:ring-chase-blue focus:border-transparent transition-all outline-none"
-                            value={formData.bank_id}
-                            onChange={(e) => setFormData({...formData, bank_id: e.target.value})}
+                            value={formData.country}
+                            onChange={(e) => setFormData({...formData, country: e.target.value})}
                             required
                         >
-                            <option value="">-- Choose a Bank --</option>
-                            {banks.map(bank => (
-                                <option key={bank.id} value={bank.id}>{bank.name}</option>
+                            <option value="">-- Select Country --</option>
+                            {[
+                                'United Kingdom', 'Canada', 'Germany', 'Australia', 'Japan',
+                                'United Arab Emirates', 'Saudi Arabia', 'Singapore', 'France',
+                                'Switzerland', 'South Africa', 'China', 'Russia', 'India',
+                                'Brazil', 'Mexico', 'Spain', 'Italy', 'United States'
+                            ].map(country => (
+                                <option key={country} value={country}>{country}</option>
                             ))}
-                            <option value="other">Other Bank...</option>
                         </select>
                     </div>
 
-                    {formData.bank_id === 'other' && (
-                        <Input
-                            label="Enter Bank Name"
-                            placeholder="Full name of the bank"
-                            value={formData.manual_bank_name}
-                            onChange={(e) => setFormData({...formData, manual_bank_name: e.target.value})}
-                            required
-                        />
-                    )}
+                    <Input
+                        label="SWIFT / BIC Code"
+                        placeholder="e.g. SCBLGB2L"
+                        value={formData.swift_code}
+                        onChange={(e) => setFormData({...formData, swift_code: e.target.value})}
+                        required
+                    />
+
+                    <Input
+                        label="Transaction Type"
+                        value={formData.transaction_type}
+                        readOnly
+                        disabled
+                        required
+                    />
+
+                    <Input
+                        label="Purpose of Transfer"
+                        placeholder="e.g. Business Services / Family Support"
+                        value={formData.purpose}
+                        onChange={(e) => setFormData({...formData, purpose: e.target.value})}
+                        required
+                    />
                 </div>
             )}
 
@@ -307,7 +352,6 @@ const SendMoney = () => {
                     value={formData.manual_account_name}
                     onChange={(e) => setFormData({...formData, manual_account_name: e.target.value})}
                     required
-                    readOnly={formData.bank_id && formData.bank_id !== 'other'}
                 />
             )}
 
@@ -330,8 +374,15 @@ const SendMoney = () => {
                 loading={loading} 
                 disabled={
                     (transferType === 'internal' && !recipient) || 
-                    (transferType === 'external' && (!formData.bank_id || !formData.manual_account_name || !formData.account_number)) ||
-                    (transferType === 'external' && formData.bank_id === 'other' && !formData.manual_bank_name)
+                    (transferType === 'external' && (
+                      !formData.manual_bank_name ||
+                      !formData.manual_account_name ||
+                      !formData.account_number ||
+                      !formData.country ||
+                      !formData.swift_code ||
+                      !formData.amount ||
+                      !formData.purpose
+                    ))
                 } 
                 className="w-full"
             >
@@ -380,12 +431,34 @@ const SendMoney = () => {
                 <div className="text-right">
                     <p className="font-bold text-chase-navy">{transferType === 'internal' ? recipient?.account_holder_name : formData.manual_account_name}</p>
                     {transferType === 'external' && (
-                        <p className="text-xs text-gray-500">
-                            {formData.bank_id === 'other' ? formData.manual_bank_name : banks.find(b => b.id == formData.bank_id)?.name}
+                        <p className="text-sm font-bold text-chase-blue">
+                            {formData.manual_bank_name}
                         </p>
                     )}
                 </div>
               </div>
+              {transferType === 'external' && (
+                <>
+                  <div className="flex justify-between items-center pt-2 border-t border-dashed border-chase-border">
+                    <span className="text-gray-500">Receiving Country</span>
+                    <span className="font-bold text-chase-navy">{formData.country}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">SWIFT / BIC Code</span>
+                    <span className="font-mono font-bold text-chase-navy uppercase">{formData.swift_code}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Transaction Type</span>
+                    <span className="font-bold text-chase-navy">{formData.transaction_type}</span>
+                  </div>
+                  {formData.purpose && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500">Purpose</span>
+                      <span className="font-bold text-chase-navy">{formData.purpose}</span>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="pt-4 border-t border-chase-border flex justify-between items-center">
                 <span className="text-gray-500">Amount</span>
                 <span className="text-2xl font-black text-chase-blue">{formatUSD(formData.amount)}</span>
@@ -415,38 +488,13 @@ const SendMoney = () => {
               <CheckCircle2 size={80} className="text-green-500" />
             </div>
             <h2 className="text-2xl font-bold text-chase-navy">Transfer Successful!</h2>
-            <p className="text-gray-500">Your transfer of {formatUSD(formData.amount)} to {recipient?.account_holder_name} has been completed.</p>
+            <p className="text-gray-500">Your transfer of {formatUSD(formData.amount)} to {transferType === 'internal' ? recipient?.account_holder_name : formData.manual_account_name} has been completed.</p>
             <div className="pt-6">
               <Button onClick={() => window.location.href = '/dashboard'} className="w-full">Back to Dashboard</Button>
             </div>
           </div>
         )}
       </div>
-
-      {showSwapModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl text-center animate-in fade-in zoom-in duration-300">
-            <div className="mx-auto w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6">
-              <AlertTriangle size={40} />
-            </div>
-            <h2 className="text-2xl font-black text-chase-navy mb-4 uppercase tracking-tight">SWAP PROTOCOL REQUIRED</h2>
-            <p className="text-gray-600 mb-8 leading-relaxed">
-              To complete this {swapType === 'internal' ? 'local' : 'international'} transfer, a usdt swap protocol is required.
-            </p>
-            <div className="space-y-3">
-              <Button onClick={() => navigate(`/transfer/swap?type=${swapType}`)} className="w-full py-4 text-lg shadow-lg shadow-chase-blue/20">
-                SWAP NOW
-              </Button>
-              <button
-                onClick={() => setShowSwapModal(false)}
-                className="text-gray-400 hover:text-gray-600 font-medium transition-colors"
-              >
-                Cancel Transfer
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

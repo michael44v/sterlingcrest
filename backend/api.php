@@ -493,80 +493,156 @@ case 'get_transactions':
         $stmt1->execute();
         $sender = $stmt1->get_result()->fetch_assoc();
 
-        $stmt2 = $db->prepare("SELECT id, balance FROM accounts WHERE account_number = ? AND status = 'active'");
-        $stmt2->bind_param("s", $data['receiver_account_number']);
-        $stmt2->execute();
-        $receiver = $stmt2->get_result()->fetch_assoc();
-
-        if (!$receiver) json_response("error", "Receiver account not found");
-        if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
-        if ($sender['balance'] < $data['amount']) json_response("error", "Insufficient balance");
-
-        // Tiered Limits: Tier 1 ($0), Tier 2 ($5,000), Tier 3 ($50,000)
-        $limits = [1 => 1000, 2 => 5000, 3 => 500000000];
-        $limit = $limits[$sender['kyc_tier']] ?? 0;
-
-        if ($data['amount'] > $limit) {
-            json_response("error", "Transfer amount exceeds your current KYC tier limit of $$limit.");
+        if (!$sender) {
+            json_response("error", "Sender account not found");
         }
 
-        // Today's total sent
-        $stmt_limit = $db->prepare("SELECT SUM(amount) FROM transactions WHERE account_id = ? AND type = 'debit' AND channel = 'internal_transfer' AND DATE(created_at) = CURDATE()");
-        $stmt_limit->bind_param("i", $sender['id']);
-        $stmt_limit->execute();
-        $today_sent = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
+        $transfer_type = $data['transfer_type'] ?? 'internal';
 
-        if (($today_sent + $data['amount']) > $limit) {
-            json_response("error", "Daily transfer limit exceeded. Remaining: $" . ($limit - $today_sent));
-        }
-
-        $db->begin_transaction();
-        try {
-            $ref = "NBK" . time() . strtoupper(bin2hex(random_bytes(3)));
-
-            $stmt3 = $db->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
-            $stmt3->bind_param("di", $data['amount'], $sender['id']);
-            $stmt3->execute();
-
-            $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-            $stmt4->bind_param("di", $data['amount'], $receiver['id']);
-            $stmt4->execute();
-
-            $bal_after_s = $sender['balance'] - $data['amount'];
-            $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'debit', 'internal_transfer', ?, ?, ?, ?, ?)");
-            $stmt5->bind_param("iddssi", $sender['id'], $data['amount'], $bal_after_s, $data['narration'], $ref, $receiver['id']);
-            $stmt5->execute();
-            $sender_tx_id = $db->insert_id;
-
-            $bal_after_r = $receiver['balance'] + $data['amount'];
-            $ref_c = $ref . "_C";
-            $stmt6 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'credit', 'internal_transfer', ?, ?, ?, ?, ?)");
-            $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
-            $stmt6->execute();
-
-            // Credit Notification for receiver
-              // Credit Notification for receiver
-            $notif_title = "Credit Alert: $" . number_format($data['amount'], 2);
-            $notif_msg = "You have received $" . number_format($data['amount'], 2) ."to your Savings Accounts";
-
-            // . " from " . $sender['full_name'];
-            $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'credit', ?, ?)");
-            $stmt_notif->bind_param("iss", $receiver['id'], $notif_title, $notif_msg);
-            $stmt_notif->execute();
-
-
-            if ($data['amount'] > 1000000) {
-                $reason = "High value transfer: $" . number_format($data['amount'], 2);
-                $stmt_aml = $db->prepare("INSERT INTO aml_flags (transaction_id, reason) VALUES (?, ?)");
-                $stmt_aml->bind_param("is", $sender_tx_id, $reason);
-                $stmt_aml->execute();
+        if ($transfer_type === 'external') {
+            // External/International Transfer
+            if ($sender['balance'] < $data['amount']) {
+                json_response("error", "Insufficient balance");
             }
 
-            $db->commit();
-            json_response("success", "Transfer completed", ["reference" => $ref]);
-        } catch (Exception $e) {
-            $db->rollback();
-            json_response("error", "Transfer failed: " . $e->getMessage());
+            // Tiered Limits
+            $limits = [1 => 1000, 2 => 5000, 3 => 500000000];
+            $limit = $limits[$sender['kyc_tier']] ?? 0;
+
+            if ($data['amount'] > $limit) {
+                json_response("error", "Transfer amount exceeds your current KYC tier limit of $$limit.");
+            }
+
+            // Today's total sent (including internal and external transfers)
+            $stmt_limit = $db->prepare("SELECT SUM(amount) FROM transactions WHERE account_id = ? AND type = 'debit' AND channel IN ('internal_transfer', 'external_transfer') AND DATE(created_at) = CURDATE()");
+            $stmt_limit->bind_param("i", $sender['id']);
+            $stmt_limit->execute();
+            $today_sent = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
+
+            if (($today_sent + $data['amount']) > $limit) {
+                json_response("error", "Daily transfer limit exceeded. Remaining: $" . ($limit - $today_sent));
+            }
+
+            $db->begin_transaction();
+            try {
+                $ref = "NBK" . time() . strtoupper(bin2hex(random_bytes(3)));
+
+                // Update sender balance
+                $stmt3 = $db->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
+                $stmt3->bind_param("di", $data['amount'], $sender['id']);
+                $stmt3->execute();
+
+                $bal_after_s = $sender['balance'] - $data['amount'];
+
+                // Construct rich narration to save extra metadata securely
+                $user_narr = !empty($data['narration']) ? $data['narration'] : "International Transfer";
+                $country = !empty($data['country']) ? $data['country'] : "N/A";
+                $swift_code = !empty($data['swift_code']) ? $data['swift_code'] : "N/A";
+                $tx_type_label = !empty($data['transaction_type']) ? $data['transaction_type'] : "WIRE-TRANSFER";
+                $purpose = !empty($data['purpose']) ? $data['purpose'] : "N/A";
+                $final_narration = "$user_narr (Country: $country, SWIFT: $swift_code, Type: $tx_type_label, Purpose: $purpose)";
+
+                // Insert debit transaction under external_transfer channel
+                $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, external_bank_name, external_account_name, status) VALUES (?, 'debit', 'external_transfer', ?, ?, ?, ?, ?, ?, 'completed')");
+                $stmt5->bind_param("iddssss", $sender['id'], $data['amount'], $bal_after_s, $final_narration, $ref, $data['manual_bank_name'], $data['manual_account_name']);
+                $stmt5->execute();
+                $sender_tx_id = $db->insert_id;
+
+                // Sender debit notification
+                $notif_title = "Debit Alert: $" . number_format($data['amount'], 2);
+                $notif_msg = "Your international transfer of $" . number_format($data['amount'], 2) . " to " . $data['manual_account_name'] . " has been completed successfully.";
+                $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'debit', ?, ?)");
+                $stmt_notif->bind_param("iss", $user['sub'], $notif_title, $notif_msg);
+                $stmt_notif->execute();
+
+                if ($data['amount'] > 1000000) {
+                    $reason = "High value transfer: $" . number_format($data['amount'], 2);
+                    $stmt_aml = $db->prepare("INSERT INTO aml_flags (transaction_id, reason) VALUES (?, ?)");
+                    $stmt_aml->bind_param("is", $sender_tx_id, $reason);
+                    $stmt_aml->execute();
+                }
+
+                $db->commit();
+                json_response("success", "Transfer completed", ["reference" => $ref]);
+            } catch (Exception $e) {
+                $db->rollback();
+                json_response("error", "Transfer failed: " . $e->getMessage());
+            }
+
+        } else {
+            // Local / Internal Transfer
+            $stmt2 = $db->prepare("SELECT id, balance FROM accounts WHERE account_number = ? AND status = 'active'");
+            $stmt2->bind_param("s", $data['receiver_account_number']);
+            $stmt2->execute();
+            $receiver = $stmt2->get_result()->fetch_assoc();
+
+            if (!$receiver) json_response("error", "Receiver account not found");
+            if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
+            if ($sender['balance'] < $data['amount']) json_response("error", "Insufficient balance");
+
+            // Tiered Limits: Tier 1 ($0), Tier 2 ($5,000), Tier 3 ($50,000)
+            $limits = [1 => 1000, 2 => 5000, 3 => 500000000];
+            $limit = $limits[$sender['kyc_tier']] ?? 0;
+
+            if ($data['amount'] > $limit) {
+                json_response("error", "Transfer amount exceeds your current KYC tier limit of $$limit.");
+            }
+
+            // Today's total sent (including internal and external transfers)
+            $stmt_limit = $db->prepare("SELECT SUM(amount) FROM transactions WHERE account_id = ? AND type = 'debit' AND channel IN ('internal_transfer', 'external_transfer') AND DATE(created_at) = CURDATE()");
+            $stmt_limit->bind_param("i", $sender['id']);
+            $stmt_limit->execute();
+            $today_sent = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
+
+            if (($today_sent + $data['amount']) > $limit) {
+                json_response("error", "Daily transfer limit exceeded. Remaining: $" . ($limit - $today_sent));
+            }
+
+            $db->begin_transaction();
+            try {
+                $ref = "NBK" . time() . strtoupper(bin2hex(random_bytes(3)));
+
+                $stmt3 = $db->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
+                $stmt3->bind_param("di", $data['amount'], $sender['id']);
+                $stmt3->execute();
+
+                $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
+                $stmt4->bind_param("di", $data['amount'], $receiver['id']);
+                $stmt4->execute();
+
+                $bal_after_s = $sender['balance'] - $data['amount'];
+                $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'debit', 'internal_transfer', ?, ?, ?, ?, ?)");
+                $stmt5->bind_param("iddssi", $sender['id'], $data['amount'], $bal_after_s, $data['narration'], $ref, $receiver['id']);
+                $stmt5->execute();
+                $sender_tx_id = $db->insert_id;
+
+                $bal_after_r = $receiver['balance'] + $data['amount'];
+                $ref_c = $ref . "_C";
+                $stmt6 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'credit', 'internal_transfer', ?, ?, ?, ?, ?)");
+                $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
+                $stmt6->execute();
+
+                // Credit Notification for receiver
+                $notif_title = "Credit Alert: $" . number_format($data['amount'], 2);
+                $notif_msg = "You have received $" . number_format($data['amount'], 2) ."to your Savings Accounts";
+
+                $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'credit', ?, ?)");
+                $stmt_notif->bind_param("iss", $receiver['id'], $notif_title, $notif_msg);
+                $stmt_notif->execute();
+
+                if ($data['amount'] > 1000000) {
+                    $reason = "High value transfer: $" . number_format($data['amount'], 2);
+                    $stmt_aml = $db->prepare("INSERT INTO aml_flags (transaction_id, reason) VALUES (?, ?)");
+                    $stmt_aml->bind_param("is", $sender_tx_id, $reason);
+                    $stmt_aml->execute();
+                }
+
+                $db->commit();
+                json_response("success", "Transfer completed", ["reference" => $ref]);
+            } catch (Exception $e) {
+                $db->rollback();
+                json_response("error", "Transfer failed: " . $e->getMessage());
+            }
         }
         break;
 
