@@ -1215,6 +1215,144 @@ case 'get_transactions':
         json_response("success", "AML Flag resolved");
         break;
 
+    case 'admin_get_international_transfers':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $db = Database::getInstance()->getConnection();
+        $res = $db->query("SELECT t.*, u.full_name as sender_name, a.account_number as sender_account
+                           FROM transactions t
+                           JOIN accounts a ON t.account_id = a.id
+                           JOIN users u ON a.user_id = u.id
+                           WHERE t.channel = 'external_transfer'
+                           ORDER BY t.created_at DESC");
+        $transfers = [];
+        while ($row = $res->fetch_assoc()) {
+            $transfers[] = $row;
+        }
+        json_response("success", "International transfers", $transfers);
+        break;
+
+    case 'admin_update_international_status':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['transaction_id']) || empty($data['status'])) {
+            json_response("error", "Missing transaction ID or status");
+        }
+
+        $transaction_id = (int)$data['transaction_id'];
+        $new_status = $data['status'];
+
+        $valid_statuses = ['completed', 'failed', 'reversed'];
+        if (!in_array($new_status, $valid_statuses)) {
+            json_response("error", "Invalid status");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            // Get transaction details and check status
+            $stmt = $db->prepare("SELECT account_id, status, amount, narration FROM transactions WHERE id = ?");
+            $stmt->bind_param("i", $transaction_id);
+            $stmt->execute();
+            $tx = $stmt->get_result()->fetch_assoc();
+
+            if (!$tx) {
+                throw new Exception("Transaction not found");
+            }
+
+            $current_status = $tx['status'];
+            $amount = (float)$tx['amount'];
+            $account_id = (int)$tx['account_id'];
+
+            // Refund logic: if moving from completed/pending to failed/reversed
+            if (($current_status === 'completed' || $current_status === 'pending') && ($new_status === 'failed' || $new_status === 'reversed')) {
+                // Perform refund to the user's account
+                $stmt_refund = $db->prepare("UPDATE accounts SET balance = balance + ?, ledger_balance = ledger_balance + ? WHERE id = ?");
+                $stmt_refund->bind_param("ddi", $amount, $amount, $account_id);
+                $stmt_refund->execute();
+
+                // Insert a notification for the refund
+                $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'reversal', 'Refund Issued', ?)");
+                $notif_msg = "Your international transfer of £" . number_format($amount, 2) . " has been reversed/refunded back to your account.";
+                $stmt_notif->bind_param("is", $account_id, $notif_msg);
+                $stmt_notif->execute();
+            }
+
+            // Update status
+            $stmt_update = $db->prepare("UPDATE transactions SET status = ? WHERE id = ?");
+            $stmt_update->bind_param("si", $new_status, $transaction_id);
+            $stmt_update->execute();
+
+            $db->commit();
+            json_response("success", "Transfer status updated successfully" . (($new_status === 'failed' || $new_status === 'reversed') ? " and funds refunded" : ""));
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Failed to update international transfer status: " . $e->getMessage());
+        }
+        break;
+
+    case 'admin_edit_transaction':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['transaction_id']) || !isset($data['amount']) || !isset($data['narration'])) {
+            json_response("error", "Missing required fields");
+        }
+
+        $transaction_id = (int)$data['transaction_id'];
+        $new_amount = (float)$data['amount'];
+        $new_narration = $data['narration'];
+
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            // Fetch transaction
+            $stmt = $db->prepare("SELECT account_id, type, amount, balance_after FROM transactions WHERE id = ?");
+            $stmt->bind_param("i", $transaction_id);
+            $stmt->execute();
+            $tx = $stmt->get_result()->fetch_assoc();
+
+            if (!$tx) {
+                throw new Exception("Transaction not found");
+            }
+
+            $account_id = $tx['account_id'];
+            $type = $tx['type'];
+            $old_amount = (float)$tx['amount'];
+
+            // Calculate change in balance
+            $diff = $new_amount - $old_amount;
+            if ($type === 'credit') {
+                $balance_adjustment = $diff;
+            } else {
+                // debit, fee, reversal etc.
+                $balance_adjustment = -$diff;
+            }
+
+            // Update transaction amount, narration, and balance_after
+            $new_balance_after = $tx['balance_after'] + $balance_adjustment;
+            $stmt_update_tx = $db->prepare("UPDATE transactions SET amount = ?, narration = ?, balance_after = ? WHERE id = ?");
+            $stmt_update_tx->bind_param("dsdi", $new_amount, $new_narration, $new_balance_after, $transaction_id);
+            $stmt_update_tx->execute();
+
+            // Update user account balance
+            $stmt_update_acc = $db->prepare("UPDATE accounts SET balance = balance + ?, ledger_balance = ledger_balance + ? WHERE id = ?");
+            $stmt_update_acc->bind_param("ddi", $balance_adjustment, $balance_adjustment, $account_id);
+            $stmt_update_acc->execute();
+
+            // Commit
+            $db->commit();
+            json_response("success", "Transaction and account balance updated successfully");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Failed to update transaction: " . $e->getMessage());
+        }
+        break;
+
     case 'admin_adjust_balance':
         $user = require_auth();
         if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");

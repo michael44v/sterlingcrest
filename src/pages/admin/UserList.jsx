@@ -276,34 +276,58 @@ const UserList = () => {
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-chase-border">
               <tr className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <th className="px-6 py-4">User</th>
-                <th className="px-6 py-4">Account Number</th>
-                <th className="px-6 py-4">KYC Tier</th>
-                <th className="px-6 py-4">Balance</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-4 md:px-6 py-4">User</th>
+                <th className="px-6 py-4 hidden sm:table-cell">Account Number</th>
+                <th className="px-6 py-4 hidden md:table-cell">KYC Tier</th>
+                <th className="px-4 md:px-6 py-4">Balance</th>
+                <th className="px-6 py-4 hidden sm:table-cell">Status</th>
+                <th className="px-4 md:px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-chase-border">
               {filteredUsers.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <UserCircle className="text-gray-400" size={32} />
+                  <td className="px-4 md:px-6 py-4">
+                    <div className="flex items-center gap-2 md:gap-3">
+                      <UserCircle className="text-gray-400 shrink-0" size={32} />
                       <div>
-                        <p className="font-bold text-chase-navy">{u.full_name}</p>
-                        <p className="text-xs text-gray-500">{u.email}</p>
+                        <p className="font-bold text-chase-navy text-sm md:text-base leading-tight">{u.full_name}</p>
+                        <p className="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">{u.email}</p>
+
+                        {/* Mobile supplementary details inline */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1 sm:hidden">
+                          <span className="text-[10px] text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                            {u.account_number}
+                          </span>
+                          <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">
+                            T{u.kyc_tier}
+                          </span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                            u.status === 'active' ? 'bg-green-50 text-green-700' :
+                            u.status === 'suspended' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+                          }`}>
+                            {u.status}
+                          </span>
+                        </div>
+                        {/* Tablet-only KYC Tier */}
+                        <div className="hidden sm:block md:hidden mt-1">
+                          <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">
+                            Tier {u.kyc_tier}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 font-mono text-sm">{u.account_number}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 font-mono text-sm hidden sm:table-cell">{u.account_number}</td>
+                  <td className="px-6 py-4 hidden md:table-cell">
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-chase-light text-chase-blue">
                       Tier {u.kyc_tier}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-bold text-chase-navy">{formatUSD(u.balance)}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 md:px-6 py-4 font-bold text-chase-navy text-sm md:text-base">
+                    {formatUSD(u.balance)}
+                  </td>
+                  <td className="px-6 py-4 hidden sm:table-cell">
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${
                       u.status === 'active' ? 'bg-green-100 text-green-700' :
                       u.status === 'suspended' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
@@ -311,37 +335,37 @@ const UserList = () => {
                       {u.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-1.5">
+                  <td className="px-4 md:px-6 py-4 text-right">
+                    <div className="flex justify-end gap-1 md:gap-1.5 flex-wrap max-w-[120px] md:max-w-none ml-auto">
                       <button
                         onClick={() => { setActiveUser(u); setModalType('balance'); setFormData({ ...formData, amount: '', narration: '', type: 'credit' }) }}
-                        className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors" title="Add / Adjust Money"
+                        className="p-1.5 md:p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors" title="Add / Adjust Money"
                       >
-                        <DollarSign size={18} />
+                        <DollarSign size={16} />
                       </button>
                       <button
                         onClick={() => { setActiveUser(u); setModalType('seed'); setFormData({ ...formData, base_date: new Date().toISOString().split('T')[0] }) }}
-                        className="p-2 hover:bg-purple-50 text-purple-600 rounded-lg transition-colors" title="Seed Realistic Transaction History"
+                        className="p-1.5 md:p-2 hover:bg-purple-50 text-purple-600 rounded-lg transition-colors" title="Seed Realistic Transaction History"
                       >
-                        <Database size={18} />
+                        <Database size={16} />
                       </button>
                       <button
                         onClick={() => { setActiveUser(u); setModalType('reset_credentials'); setFormData({ ...formData, password: '', pin: '' }) }}
-                        className="p-2 hover:bg-pink-50 text-pink-600 rounded-lg transition-colors" title="Reset Password / PIN"
+                        className="p-1.5 md:p-2 hover:bg-pink-50 text-pink-600 rounded-lg transition-colors" title="Reset Password / PIN"
                       >
-                        <KeyRound size={18} />
+                        <KeyRound size={16} />
                       </button>
                       <button
                         onClick={() => { setActiveUser(u); setModalType('status'); }}
-                        className="p-2 hover:bg-amber-50 text-amber-600 rounded-lg transition-colors" title="Set Status"
+                        className="p-1.5 md:p-2 hover:bg-amber-50 text-amber-600 rounded-lg transition-colors" title="Set Status"
                       >
-                        <Lock size={18} />
+                        <Lock size={16} />
                       </button>
                       <button
                         onClick={() => { setActiveUser(u); setModalType('message'); setFormData({ ...formData, title: '', message: '' }) }}
-                        className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" title="Send Message"
+                        className="p-1.5 md:p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" title="Send Message"
                       >
-                        <Send size={18} />
+                        <Send size={16} />
                       </button>
                     </div>
                   </td>

@@ -4,6 +4,8 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import AppLayout from './components/layout/AppLayout';
 
+import LandingPage from './pages/LandingPage';
+
 // User Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
@@ -32,6 +34,7 @@ import KYCQueue from './pages/admin/KYCQueue';
 import AMLQueue from './pages/admin/AMLQueue';
 import TransactionMonitor from './pages/admin/TransactionMonitor';
 import Emails from './pages/admin/Emails';
+import InternationalTransfers from './pages/admin/InternationalTransfers';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -76,10 +79,11 @@ const App = () => {
             <Route path="transactions" element={<TransactionMonitor />} />
             <Route path="aml" element={<AMLQueue />} />
             <Route path="emails" element={<Emails />} />
+            <Route path="international" element={<InternationalTransfers />} />
           </Route>
 
-          {/* Default Redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          {/* Default Route */}
+          <Route path="/" element={<LandingPage />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
