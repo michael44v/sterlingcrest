@@ -366,8 +366,12 @@ const LandingPage = () => {
       <nav className="scf-nav">
         <div className="scf-nav-inner">
           <a href="#" className="scf-logo">
-            <span className="scf-logo-mark">S</span>
-            <span className="scf-logo-word">StarlingCrest <span>Finance</span></span>
+              <img
+        src="/logo.png"
+        alt="Starling Crest Finance"
+        style={{ height: 60, width: 'auto', display: 'block', borderRadius: 8 }}
+      />
+            
           </a>
           <div className="scf-nav-links">
             <a href="#features" className="scf-nav-link">Personal</a>
@@ -377,17 +381,16 @@ const LandingPage = () => {
           </div>
           <div className="scf-nav-actions">
             {user ? (
-              <a href="#" className="scf-btn scf-btn-primary">Go to dashboard <ArrowRight size={16} /></a>
+              <a href="/dashboard" className="scf-btn scf-btn-primary">Go to dashboard <ArrowRight size={16} /></a>
             ) : (
               <>
-                <a href="#" className="scf-btn scf-btn-ghost">Sign in</a>
-                <a href="#" className="scf-btn scf-btn-primary">Open an account</a>
+                <a href="/login" className="scf-btn scf-btn-ghost">Sign in</a>
+                <a href="/register" className="scf-btn scf-btn-primary">Open an account</a>
               </>
             )}
           </div>
-          <button className="scf-menu-toggle" onClick={() => setNavOpen(!navOpen)} aria-label="Toggle menu">
-            {navOpen ? <X size={22} /> : <Menu size={22} />}
-          </button>
+         
+
         </div>
       </nav>
 
@@ -401,7 +404,7 @@ const LandingPage = () => {
             so you always know exactly where you stand, down to the last transaction.
           </p>
           <div className="scf-hero-ctas">
-            <a href="#" className="scf-btn scf-btn-primary scf-btn-lg">Open an account <ArrowRight size={17} /></a>
+            <a href="/register" className="scf-btn scf-btn-primary scf-btn-lg">Open an account <ArrowRight size={17} /></a>
             <a href="#how" className="scf-btn scf-btn-ghost scf-btn-lg">See how it works <ChevronRight size={17} /></a>
           </div>
           <div className="scf-trust-line">
@@ -569,7 +572,7 @@ const LandingPage = () => {
                 Spending trends, upcoming transfers, and account balances update live —
                 no refreshing, no waiting for end-of-day statements.
               </p>
-              <a href="#" className="scf-btn scf-btn-primary">Preview your dashboard <ArrowRight size={16} /></a>
+              <a href="/login" className="scf-btn scf-btn-primary">Preview your dashboard <ArrowRight size={16} /></a>
             </div>
 
             <div className="scf-dash-card">
