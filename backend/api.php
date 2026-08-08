@@ -1503,6 +1503,35 @@ case 'get_transactions':
         }
         break;
 
+    case 'admin_delete_user':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id'])) {
+            json_response("error", "Missing User ID");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            // Cannot delete self
+            if ((int)$data['user_id'] === (int)$user['sub']) {
+                throw new Exception("You cannot delete your own admin account");
+            }
+
+            $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->bind_param("i", $data['user_id']);
+            $stmt->execute();
+
+            $db->commit();
+            json_response("success", "User account deleted successfully");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Failed to delete user: " . $e->getMessage());
+        }
+        break;
+
     case 'admin_create_user':
         $user = require_auth();
         if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");

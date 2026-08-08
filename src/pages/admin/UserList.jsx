@@ -127,6 +127,27 @@ const UserList = () => {
     }
   };
 
+  const handleDeleteUser = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await api.post('?action=admin_delete_user', {
+        user_id: activeUser.id
+      });
+      if (res.data.status === 'success') {
+        toast.success(res.data.message);
+        setModalType(null);
+        fetchUsers();
+      } else {
+        toast.error(res.data.message);
+      }
+    } catch (err) {
+      toast.error('Failed to delete user account');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSendMessage = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -505,6 +526,12 @@ const UserList = () => {
                         className="p-1.5 md:p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" title="Send Message"
                       >
                         <Send size={16} />
+                      </button>
+                      <button
+                        onClick={() => { setActiveUser(u); setModalType('delete'); }}
+                        className="p-1.5 md:p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors" title="Delete User"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
@@ -1195,6 +1222,25 @@ const UserList = () => {
               ))}
             </div>
             <Button variant="secondary" className="w-full" onClick={() => setModalType(null)}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Modal */}
+      {modalType === 'delete' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl text-center">
+            <div className={`mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-red-100 text-red-600`}>
+              <Trash2 size={32} />
+            </div>
+            <h2 className="text-xl font-bold text-chase-navy mb-2">Delete User Account</h2>
+            <p className="text-gray-500 mb-6">
+              Are you sure you want to permanently delete the account for <strong>{activeUser?.full_name}</strong>? This action is irreversible and all associated bank accounts, credit cards, and transactions will be deleted.
+            </p>
+            <div className="flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => setModalType(null)}>Cancel</Button>
+              <Button type="button" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold" onClick={handleDeleteUser} loading={submitting}>Delete Account</Button>
+            </div>
           </div>
         </div>
       )}
