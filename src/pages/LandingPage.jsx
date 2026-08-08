@@ -1,15 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 import {
-  ArrowRight, ShieldCheck, Zap, Globe, Lock, ChevronRight,
-  Phone, Mail, CheckCircle2,
-  Menu, X, Home, CreditCard, PiggyBank, Umbrella,
-  Heart, User, Key, HelpCircle, MessageSquare
+  ArrowRight, ChevronRight, Phone, Mail, Menu, X
 } from 'lucide-react';
 
 const LandingPage = () => {
   const [navOpen, setNavOpen] = useState(false);
   const [slideIndex, setSlideIndex] = useState(0);
-  const [loginForm, setLoginForm] = useState({ user: '', bid: '' });
+
+  // Auth Integration State
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
+  const [loginStep, setLoginStep] = useState('form'); // 'form' or 'pin'
+  const [loading, setLoading] = useState(false);
 
   const slides = [
     {
@@ -32,16 +40,17 @@ const LandingPage = () => {
     }
   ];
 
+  // Removed Register card from features
   const colorfulFeatures = [
-    { title: 'Register', desc: 'Discover the benefits of a new customer.', color: 'feature-color-1', href: '/register' },
     { title: 'Mortgages', desc: 'Find one that’s right for your needs and circumstances.', color: 'feature-color-2', href: '#borrowing' },
     { title: 'Travel Money', desc: 'Check rates and order online now.', color: 'feature-color-3', href: '#services' },
     { title: 'Savings', desc: 'See how we could help your money work harder.', color: 'feature-color-4', href: '#savings' },
   ];
 
+  // Removed CTA to register ('cta' property)
   const blogCards = [
     { img: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=600&q=80', title: 'Up to USD20,000 this tax year', text: 'Make the most of your ISA allowance with a Selection Stocks and Shares ISA.' },
-    { img: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=600&q=80', title: 'Book an appointment', text: 'You can now book an appointment online or through email to make booking even simpler.', cta: 'Book Now', cta2: 'Login and book now' },
+    { img: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=600&q=80', title: 'Book an appointment', text: 'You can now book an appointment online or through email to make booking even simpler.', cta2: 'Login and book now' },
     { img: 'https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=600&q=80', title: 'Ring-fencing', text: 'We’re changing the way we are structured in the US.' },
   ];
 
@@ -63,10 +72,43 @@ const LandingPage = () => {
     return () => clearInterval(timer);
   }, [slides.length]);
 
+  const handleLoginSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const result = await login(email, password);
+    setLoading(false);
+
+    if (result.success) {
+      toast.success('Login successful');
+      navigate('/dashboard');
+    } else {
+      if (result.pin_required) {
+        setLoginStep('pin');
+        toast(result.message || 'Transaction PIN required for login', { icon: '🔐' });
+      } else {
+        toast.error(result.message);
+      }
+    }
+  };
+
+  const handlePinSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const result = await login(email, password, pin);
+    setLoading(false);
+
+    if (result.success) {
+      toast.success('Login successful');
+      navigate('/dashboard');
+    } else {
+      toast.error(result.message);
+    }
+  };
+
   return (
     <div className="scf-page">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600&display=swap');
 
         .scf-page {
           --bg: #FAF7F2;
@@ -81,12 +123,12 @@ const LandingPage = () => {
           --orange-tint-2: #FBDFC4;
           --navy: #033d75;
           --navy-light: #054a8c;
-          font-family: 'Inter', -apple-system, sans-serif;
+          font-family: 'Fraunces', serif;
           background: var(--bg);
           color: var(--text);
           overflow-x: hidden;
         }
-        .scf-page * { box-sizing: border-box; margin: 0; padding: 0; }
+        .scf-page * { box-sizing: border-box; margin: 0; padding: 0; font-family: inherit; }
         .scf-display { font-family: 'Fraunces', serif; letter-spacing: -0.01em; }
         .scf-mono { font-family: 'IBM Plex Mono', monospace; }
 
@@ -115,20 +157,13 @@ const LandingPage = () => {
           display: flex; align-items: center; justify-content: space-between;
         }
         .scf-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
-        .scf-logo-mark {
-          width: 36px; height: 36px; border-radius: 9px;
-          background: linear-gradient(145deg, var(--orange), var(--orange-deep));
-          display: flex; align-items: center; justify-content: center;
-          color: white; font-family: 'Fraunces', serif; font-weight: 700; font-size: 18px;
-        }
-        .scf-logo-word { font-weight: 700; font-size: 18px; letter-spacing: -0.01em; }
-        .scf-logo-word span { color: var(--orange); }
+        .scf-logo img { height: 44px; width: auto; display: block; border-radius: 0; }
 
         .scf-nav-links { display: flex; align-items: center; gap: 6px; }
         .scf-nav-item { position: relative; }
         .scf-nav-link {
           color: var(--text-muted); font-size: 14px; font-weight: 600;
-          text-decoration: none; padding: 10px 14px; border-radius: 8px;
+          text-decoration: none; padding: 10px 14px; border-radius: 0;
           display: flex; align-items: center; gap: 4px; transition: all .15s;
         }
         .scf-nav-link:hover { color: var(--text); background: var(--bg); }
@@ -136,7 +171,7 @@ const LandingPage = () => {
 
         .scf-btn {
           display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-          font-weight: 600; font-size: 14px; border-radius: 10px;
+          font-weight: 600; font-size: 14px; border-radius: 0;
           border: none; cursor: pointer; text-decoration: none;
           transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
           white-space: nowrap;
@@ -179,20 +214,20 @@ const LandingPage = () => {
           font-size: 15.5px; line-height: 1.65; color: var(--text-muted); margin: 0 0 24px;
         }
         .scf-slider-img {
-          border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px -20px rgba(36,31,26,0.3);
+          border-radius: 0; overflow: hidden; box-shadow: 0 20px 50px -20px rgba(36,31,26,0.3);
         }
-        .scf-slider-img img { width: 100%; height: 260px; object-fit: cover; display: block; }
+        .scf-slider-img img { width: 100%; height: 260px; object-fit: cover; display: block; border-radius: 0; }
         .scf-slider-dots {
           display: flex; gap: 8px; margin-top: 28px;
         }
         .scf-slider-dot {
-          width: 10px; height: 10px; border-radius: 50%; border: none;
+          width: 10px; height: 10px; border-radius: 0; border: none;
           background: var(--border); cursor: pointer; transition: background .2s;
         }
         .scf-slider-dot.active { background: var(--orange); }
 
         .scf-login-box {
-          background: var(--surface); border-radius: 20px;
+          background: var(--surface); border-radius: 0;
           border: 1px solid var(--border); padding: 32px;
           box-shadow: 0 20px 50px -20px rgba(36,31,26,0.2);
         }
@@ -200,7 +235,7 @@ const LandingPage = () => {
           font-family: 'Fraunces', serif; font-size: 22px; margin-bottom: 20px; font-weight: 600;
         }
         .scf-input {
-          width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+          width: 100%; padding: 12px 14px; border-radius: 0; border: 1px solid var(--border);
           background: var(--bg); font-size: 14px; margin-bottom: 12px; outline: none;
           transition: border-color .15s;
         }
@@ -228,13 +263,13 @@ const LandingPage = () => {
           font-family: 'Fraunces', serif; font-size: 30px; font-weight: 600; margin-bottom: 10px;
         }
         .scf-title-border {
-          width: 60px; height: 3px; background: var(--orange); margin: 0 auto; border-radius: 2px;
+          width: 60px; height: 3px; background: var(--orange); margin: 0 auto; border-radius: 0;
         }
         .scf-choose-grid {
           display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;
         }
-        .scf-choose-img { border-radius: 20px; overflow: hidden; }
-        .scf-choose-img img { width: 100%; height: 320px; object-fit: cover; display: block; }
+        .scf-choose-img { border-radius: 0; overflow: hidden; }
+        .scf-choose-img img { width: 100%; height: 320px; object-fit: cover; display: block; border-radius: 0; }
         .scf-choose-text h5 {
           font-size: 18px; font-weight: 700; line-height: 1.4; margin-bottom: 16px; color: var(--text);
         }
@@ -247,12 +282,13 @@ const LandingPage = () => {
           max-width: 1200px; margin: 0 auto; padding: 40px 24px 60px;
         }
         .scf-colorful-grid {
-          display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
-          border-radius: 16px; overflow: hidden;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+          border-radius: 0; overflow: hidden;
         }
         .scf-colorful-card {
           padding: 32px 24px; color: white; text-align: center;
           transition: transform .2s;
+          border-radius: 0;
         }
         .scf-colorful-card:hover { transform: translateY(-4px); }
         .scf-colorful-card h2 {
@@ -262,7 +298,6 @@ const LandingPage = () => {
           color: white; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
         }
         .scf-colorful-card p { font-size: 13.5px; opacity: 0.95; line-height: 1.5; }
-        .feature-color-1 { background: linear-gradient(135deg, #2E7D46, #1B5E2E); }
         .feature-color-2 { background: linear-gradient(135deg, var(--navy), #022a50); }
         .feature-color-3 { background: linear-gradient(135deg, #C4490A, var(--orange-deep)); }
         .feature-color-4 { background: linear-gradient(135deg, #5D4037, #3E2723); }
@@ -275,15 +310,15 @@ const LandingPage = () => {
           display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
         }
         .scf-blog-card {
-          background: var(--surface); border-radius: 16px; overflow: hidden;
+          background: var(--surface); border-radius: 0; overflow: hidden;
           border: 1px solid var(--border); transition: transform .2s, box-shadow .2s;
         }
         .scf-blog-card:hover {
           transform: translateY(-4px);
           box-shadow: 0 20px 40px -20px rgba(36,31,26,0.25);
         }
-        .scf-blog-card figure { margin: 0; overflow: hidden; }
-        .scf-blog-card img { width: 100%; height: 200px; object-fit: cover; display: block; transition: transform .4s; }
+        .scf-blog-card figure { margin: 0; overflow: hidden; border-radius: 0; }
+        .scf-blog-card img { width: 100%; height: 200px; object-fit: cover; display: block; transition: transform .4s; border-radius: 0; }
         .scf-blog-card:hover img { transform: scale(1.05); }
         .scf-blog-content { padding: 22px; }
         .scf-blog-content a {
@@ -299,7 +334,7 @@ const LandingPage = () => {
         }
         .scf-booking-btns a {
           font-size: 12.5px; font-weight: 600; color: var(--orange-deep);
-          background: var(--orange-tint); padding: 6px 12px; border-radius: 8px;
+          background: var(--orange-tint); padding: 6px 12px; border-radius: 0;
         }
 
         /* PORTFOLIO GRID */
@@ -310,11 +345,11 @@ const LandingPage = () => {
           display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px;
         }
         .scf-portfolio-card {
-          background: var(--surface); border-radius: 14px; overflow: hidden;
+          background: var(--surface); border-radius: 0; overflow: hidden;
           border: 1px solid var(--border); transition: all .2s;
         }
         .scf-portfolio-card:hover { border-color: #EAC69B; box-shadow: 0 12px 24px -16px rgba(232,93,4,0.3); }
-        .scf-portfolio-card img { width: 100%; height: 160px; object-fit: cover; display: block; }
+        .scf-portfolio-card img { width: 100%; height: 160px; object-fit: cover; display: block; border-radius: 0; }
         .scf-portfolio-card .content { padding: 18px; }
         .scf-portfolio-card a {
           font-size: 15px; font-weight: 700; color: var(--text); text-decoration: none;
@@ -334,10 +369,10 @@ const LandingPage = () => {
           max-width: 1200px; margin: 0 auto;
           display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 48px; align-items: center;
         }
-        .scf-news-img { border-radius: 20px; overflow: hidden; box-shadow: 0 20px 50px -20px rgba(36,31,26,0.25); }
-        .scf-news-img img { width: 100%; height: 320px; object-fit: cover; display: block; }
+        .scf-news-img { border-radius: 0; overflow: hidden; box-shadow: 0 20px 50px -20px rgba(36,31,26,0.25); }
+        .scf-news-img img { width: 100%; height: 320px; object-fit: cover; display: block; border-radius: 0; }
         .scf-news-content {
-          background: rgba(3, 61, 117, 0.06); border-radius: 20px; padding: 40px;
+          background: rgba(3, 61, 117, 0.06); border-radius: 0; padding: 40px;
         }
         .scf-news-content h2 {
           font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; margin-bottom: 12px;
@@ -348,6 +383,7 @@ const LandingPage = () => {
         .scf-cta-banner {
           background: linear-gradient(135deg, var(--navy), #022a50);
           padding: 60px 24px; text-align: center; color: white;
+          border-radius: 0;
         }
         .scf-cta-banner h2 { font-family: 'Fraunces', serif; font-size: 32px; font-weight: 600; margin-bottom: 8px; }
         .scf-cta-banner h3 { font-size: 17px; opacity: 0.85; font-weight: 400; margin-bottom: 24px; }
@@ -358,7 +394,7 @@ const LandingPage = () => {
           max-width: 1200px; margin: 0 auto; padding: 70px 24px;
         }
         .scf-connect-inner {
-          background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+          background: var(--surface); border: 1px solid var(--border); border-radius: 0;
           padding: 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
         }
         .scf-connect h5 {
@@ -369,11 +405,11 @@ const LandingPage = () => {
         }
         .scf-connect-form input,
         .scf-connect-form textarea {
-          width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--border);
+          width: 100%; padding: 12px 14px; border-radius: 0; border: 1px solid var(--border);
           background: var(--bg); font-size: 14px; margin-bottom: 16px; outline: none;
           font-family: inherit;
         }
-        .scf-connect-form textarea { resize: vertical; min-height: 100px; }
+        .scf-connect-form textarea { resize: vertical; min-height: 100px; border-radius: 0; }
         .scf-connect-info p { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 12px; }
         .scf-connect-info strong { color: var(--text); }
 
@@ -399,7 +435,7 @@ const LandingPage = () => {
         }
         .scf-social { display: flex; gap: 10px; }
         .scf-social a {
-          width: 34px; height: 34px; border-radius: 50%;
+          width: 34px; height: 34px; border-radius: 0;
           background: rgba(255,255,255,0.08); color: #b0a69b;
           display: flex; align-items: center; justify-content: center;
           text-decoration: none; transition: all .15s;
@@ -413,7 +449,7 @@ const LandingPage = () => {
           .scf-slider-item { grid-template-columns: 1fr; }
           .scf-slider-img { order: -1; }
           .scf-choose-grid { grid-template-columns: 1fr; }
-          .scf-colorful-grid { grid-template-columns: 1fr 1fr; }
+          .scf-colorful-grid { grid-template-columns: 1fr; }
           .scf-blog-grid { grid-template-columns: 1fr; }
           .scf-portfolio-grid { grid-template-columns: 1fr 1fr; }
           .scf-news-inner { grid-template-columns: 1fr; }
@@ -442,10 +478,9 @@ const LandingPage = () => {
       {/* NAVIGATION */}
       <nav className="scf-nav">
         <div className="scf-nav-inner">
-          <a href="#" className="scf-logo">
-            <span className="scf-logo-mark">S</span>
-            <span className="scf-logo-word">StarlingCrest <span>Finance</span></span>
-          </a>
+          <Link to="/" className="scf-logo">
+            <img src="/logo.png" alt="StarlingCrest Finance" />
+          </Link>
           <div className="scf-nav-links">
             <div className="scf-nav-item">
               <a href="#services" className="scf-nav-link">Services <ChevronRight size={14} style={{transform:'rotate(90deg)'}} /></a>
@@ -464,8 +499,7 @@ const LandingPage = () => {
             </div>
           </div>
           <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-            <a href="/login" className="scf-btn scf-btn-ghost">Sign in</a>
-            <a href="/register" className="scf-btn scf-btn-primary">Open an account</a>
+            <Link to="/login" className="scf-btn scf-btn-primary">Sign in</Link>
             <button className="scf-menu-toggle" onClick={() => setNavOpen(!navOpen)}>{navOpen ? <X size={24} /> : <Menu size={24} />}</button>
           </div>
         </div>
@@ -495,33 +529,62 @@ const LandingPage = () => {
           </div>
 
           <div className="scf-login-box">
-            <h3 className="scf-display">Welcome</h3>
-            <form onSubmit={e => e.preventDefault()}>
-              <input
-                type="text"
-                className="scf-input"
-                placeholder="Username"
-                value={loginForm.user}
-                onChange={e => setLoginForm({...loginForm, user: e.target.value})}
-              />
-              <input
-                type="password"
-                className="scf-input"
-                placeholder="Password"
-                value={loginForm.bid}
-                onChange={e => setLoginForm({...loginForm, bid: e.target.value})}
-              />
-              <div className="scf-login-options">
-                <label><input type="checkbox" /> Remember me</label>
-              </div>
-              <button type="submit" className="scf-btn scf-btn-primary" style={{width:'100%', marginBottom:'14px'}}>
-                Sign in
-              </button>
-              <div className="scf-login-links">
-                <a href="/forgot">Can't login? Forgot password <ChevronRight size={12} /></a><br/>
-                <a href="/register">Not enrolled? Sign up now <ChevronRight size={12} /></a>
-              </div>
-            </form>
+            {loginStep === 'form' ? (
+              <>
+                <h3 className="scf-display">Welcome</h3>
+                <form onSubmit={handleLoginSubmit}>
+                  <input
+                    type="email"
+                    className="scf-input"
+                    placeholder="Email Address"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                  />
+                  <input
+                    type="password"
+                    className="scf-input"
+                    placeholder="Password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                  />
+                  <div className="scf-login-options">
+                    <label><input type="checkbox" /> Remember me</label>
+                  </div>
+                  <button type="submit" disabled={loading} className="scf-btn scf-btn-primary" style={{width:'100%', marginBottom:'14px'}}>
+                    {loading ? 'Signing in...' : 'Sign in'}
+                  </button>
+                  <div className="scf-login-links">
+                    <Link to="/forgot-password">Can't login? Forgot password <ChevronRight size={12} /></Link>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <h3 className="scf-display">Verify PIN</h3>
+                <form onSubmit={handlePinSubmit}>
+                  <p style={{ fontSize: '14px', marginBottom: '14px', color: 'var(--text-muted)' }}>
+                    Enter your 4-digit Transaction PIN to complete sign-in.
+                  </p>
+                  <input
+                    type="password"
+                    className="scf-input"
+                    placeholder="••••"
+                    maxLength={4}
+                    value={pin}
+                    onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    required
+                  />
+                  <button type="submit" disabled={loading} className="scf-btn scf-btn-primary" style={{width:'100%', marginBottom:'14px'}}>
+                    {loading ? 'Verifying...' : 'Sign in'}
+                  </button>
+                  <button type="button" className="scf-btn scf-btn-ghost" style={{width:'100%'}} onClick={() => { setLoginStep('form'); setPin(''); }}>
+                    Back to Login
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -573,10 +636,9 @@ const LandingPage = () => {
               <div className="scf-blog-content">
                 <a href="#">{card.title} <ArrowRight size={14} /></a>
                 <span>{card.text}</span>
-                {card.cta && (
+                {card.cta2 && (
                   <div className="scf-booking-btns">
-                    <a href="/register">{card.cta} <ArrowRight size={12} /></a>
-                    <a href="/login">{card.cta2} <ArrowRight size={12} /></a>
+                    <Link to="/login">{card.cta2} <ArrowRight size={12} /></Link>
                   </div>
                 )}
               </div>
@@ -633,8 +695,8 @@ const LandingPage = () => {
       {/* CTA BANNER */}
       <section className="scf-cta-banner">
         <h2 className="scf-display">Open our most popular savings account</h2>
-        <h3>Apply for a new Savings account in minutes.</h3>
-        <a href="/register" className="scf-btn scf-btn-primary scf-btn-lg">Apply Now <ArrowRight size={17} /></a>
+        <h3>Access our high-yield savings program in minutes.</h3>
+        <Link to="/login" className="scf-btn scf-btn-primary scf-btn-lg">Sign in now <ArrowRight size={17} /></Link>
       </section>
 
       {/* CONNECT WITH US */}
@@ -664,8 +726,6 @@ const LandingPage = () => {
             <p><strong>Headquarters:</strong><br/>400 Robert Street North, Saint Paul, MN 55101, USA.</p>
             <p><strong>Email:</strong><br/><a href="mailto:support@starlingcrestfinance.com" style={{color:'var(--orange-deep)'}}>support@starlingcrestfinance.com</a></p>
             <div className="scf-social" style={{marginTop:'20px'}}>
-             
-              
             </div>
           </div>
         </div>
@@ -681,7 +741,7 @@ const LandingPage = () => {
             </div>
             <div className="scf-footer-col">
               <h5>Our performance</h5>
-              <a href="/register">View our service dashboard to see how we're doing</a>
+              <Link to="/login">View our service dashboard to see how we're doing</Link>
             </div>
             <div className="scf-footer-col">
               <h5>About StarlingCrest</h5>
