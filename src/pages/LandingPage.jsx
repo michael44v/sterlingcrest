@@ -550,13 +550,13 @@ const LandingPage = () => {
                     required
                   />
                   <div className="scf-login-options">
-                    <label><input type="checkbox" /> Remember me</label>
+                  
                   </div>
                   <button type="submit" disabled={loading} className="scf-btn scf-btn-primary" style={{width:'100%', marginBottom:'14px'}}>
                     {loading ? 'Signing in...' : 'Sign in'}
                   </button>
                   <div className="scf-login-links">
-                    <Link to="/forgot-password">Can't login? Forgot password <ChevronRight size={12} /></Link>
+                  
                   </div>
                 </form>
               </>
