@@ -8,7 +8,18 @@ const TopBar = ({ onMenuClick, sidebarOpen }) => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [profilePic, setProfilePic] = useState('');
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    if (user) {
+      api.get('?action=get_profile').then(res => {
+        if (res.data.status === 'success' && res.data.data.profile_picture_url) {
+          setProfilePic(res.data.data.profile_picture_url);
+        }
+      }).catch(err => console.error(err));
+    }
+  }, [user]);
 
   const fetchNotifications = async () => {
     try {
@@ -93,9 +104,17 @@ const TopBar = ({ onMenuClick, sidebarOpen }) => {
           )}
         </div>
 
-        <div className="w-8 h-8 bg-chase-blue text-white rounded-full flex items-center justify-center text-sm font-bold select-none">
-          {user?.full_name?.charAt(0)}
-        </div>
+        {profilePic ? (
+          <img
+            src={profilePic}
+            alt={user?.full_name}
+            className="w-8 h-8 rounded-full object-cover border border-gray-200 shadow-sm"
+          />
+        ) : (
+          <div className="w-8 h-8 bg-chase-blue text-white rounded-full flex items-center justify-center text-sm font-bold select-none">
+            {user?.full_name?.charAt(0)}
+          </div>
+        )}
       </div>
     </header>
   );

@@ -3,14 +3,15 @@ import axios from '../../api/axios';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
 import toast from 'react-hot-toast';
-import { User, Mail, Phone, Shield, Save, Globe } from 'lucide-react';
+import { User, Mail, Phone, Shield, Save, Globe, Camera, UploadCloud } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const ProfileSettings = () => {
   const [profile, setProfile] = useState({
     full_name: '',
     email: '',
-    phone: ''
+    phone: '',
+    profile_picture_url: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,16 +33,26 @@ const ProfileSettings = () => {
     }
   };
 
+  const handleProfilePictureUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfile(prev => ({ ...prev, profile_picture_url: reader.result }));
+        toast.success("Profile picture loaded! Save changes to apply.");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await axios.get('', {
-        params: {
-          action: 'update_profile',
-          full_name: profile.full_name,
-          phone: profile.phone
-        }
+      const res = await axios.post('?action=update_profile', {
+        full_name: profile.full_name,
+        phone: profile.phone,
+        profile_picture_url: profile.profile_picture_url || ''
       });
       if (res.data.status === 'success') {
         toast.success('Profile updated successfully');
@@ -146,16 +157,45 @@ const ProfileSettings = () => {
         </div>
 
         <div className="space-y-6">
-          <div className="bg-chase-navy p-6 rounded-2xl text-white">
-            <div className="w-16 h-16 bg-chase-blue rounded-full flex items-center justify-center text-2xl font-black mb-4">
-              {profile.full_name.charAt(0)}
+          <div className="bg-chase-navy p-6 rounded-2xl text-white text-center sm:text-left flex flex-col items-center sm:items-start">
+            <div className="relative group w-20 h-20 rounded-full overflow-hidden border-2 border-orange-500 shadow-md mb-4 bg-chase-blue flex items-center justify-center">
+              {profile.profile_picture_url ? (
+                <img
+                  src={profile.profile_picture_url}
+                  alt={profile.full_name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-2xl font-black text-white">{profile.full_name.charAt(0)}</span>
+              )}
+              <label className="absolute inset-0 bg-black/40 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                <Camera size={18} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleProfilePictureUpload}
+                />
+              </label>
             </div>
-            <h3 className="text-xl font-bold">{profile.full_name}</h3>
-            <p className="text-white/60 text-sm mb-4">{profile.email}</p>
+            <div className="text-center sm:text-left">
+              <h3 className="text-xl font-bold">{profile.full_name}</h3>
+              <p className="text-white/60 text-sm mb-2">{profile.email}</p>
+
+              <label className="inline-flex items-center gap-1.5 px-3 py-1 bg-white/10 hover:bg-white/25 rounded-full text-xs font-bold uppercase tracking-wider cursor-pointer transition-colors mb-4">
+                <UploadCloud size={12} /> Change Photo
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleProfilePictureUpload}
+                />
+              </label>
+            </div>
             <div className="inline-block px-3 py-1 bg-white/10 rounded-full text-xs font-bold uppercase tracking-wider">
               {profile.role}
             </div>
-            <div className="mt-6 pt-6 border-t border-white/10">
+            <div className="mt-6 pt-6 border-t border-white/10 w-full text-center sm:text-left">
               <p className="text-xs text-white/40">Member since {new Date(profile.created_at).toLocaleDateString()}</p>
             </div>
           </div>
