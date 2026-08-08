@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LayoutDashboard, Users, ShieldCheck, Activity, AlertTriangle, ArrowLeft, Menu, X, RefreshCcw, Mail } from 'lucide-react';
+import { LayoutDashboard, Users, ShieldCheck, Activity, AlertTriangle, ArrowLeft, Menu, X, RefreshCcw, Mail, Globe } from 'lucide-react';
 
 import AdminLogin from './AdminLogin';
 
@@ -29,6 +29,7 @@ const AdminLayout = () => {
     { name: 'Transactions', path: '/admin/transactions', icon: Activity },
     { name: 'AML Flags', path: '/admin/aml', icon: AlertTriangle },
     { name: 'Emails', path: '/admin/emails', icon: Mail },
+    { name: 'Intl Transfers', path: '/admin/international', icon: Globe },
   ];
 
   return (
