@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
-import { formatUSD, formatUSD_S } from '../../utils/formatCurrency';
+import { formatUSD, formatUSD_S, getSymbol } from '../../utils/formatCurrency';
 import {
   Eye,
   EyeOff,
@@ -33,6 +33,9 @@ const DashboardHome = () => {
         const response = await api.get('?action=get_dashboard');
         if (response.data.status === 'success') {
           setData(response.data.data);
+          if (response.data.data.currency) {
+            localStorage.setItem('user_currency', response.data.data.currency);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch dashboard', err);
@@ -115,7 +118,7 @@ const DashboardHome = () => {
           ) : (
             <>
               <h1 className="text-4xl font-bold text-white tracking-tight">
-                {showBalance ? formatUSD(data?.balance ?? 0) : '£••••••'}
+                {showBalance ? formatUSD(data?.balance ?? 0, data?.currency) : `${getSymbol(data?.currency || 'USD')}••••••`}
               </h1>
               <button className="w-7 h-7 flex items-center justify-center rounded-full bg-white/20 text-white text-lg font-light hover:bg-white/30 transition-colors">
                 +
@@ -136,14 +139,14 @@ const DashboardHome = () => {
                 <div className="px-6 py-3 text-center">
                   <p className="text-[11px] text-white/60 mb-0.5">In Spending Spaces</p>
                   <p className="text-base font-bold text-white">
-                    {formatUSD_S(data?.total_debit_sum ?? 0)}
+                    {formatUSD_S(data?.total_debit_sum ?? 0, data?.currency)}
                   </p>
                 </div>
                 <div className="w-px bg-white/15" />
                 <div className="px-6 py-3 text-center">
                   <p className="text-[11px] text-white/60 mb-0.5">Total balance</p>
                   <p className="text-base font-bold text-white">
-                    {formatUSD_S(data?.balance ?? 0)}
+                    {formatUSD_S(data?.balance ?? 0, data?.currency)}
                   </p>
                 </div>
               </>
@@ -193,7 +196,7 @@ const DashboardHome = () => {
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm text-gray-400 font-medium">{label}</span>
                     <span className="text-sm text-gray-400 font-medium">
-                      {formatUSD_S(dayTotal)}
+                      {formatUSD_S(dayTotal, data?.currency)}
                     </span>
                   </div>
 
@@ -234,7 +237,7 @@ const DashboardHome = () => {
                           {/* Amount */}
                           <div className="text-right flex-shrink-0">
                             <p className="text-[15px] font-bold text-gray-900">
-                              {formatUSD(tx.amount)}
+                              {formatUSD(tx.amount, data?.currency)}
                             </p>
                           </div>
                         </div>

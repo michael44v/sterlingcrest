@@ -16,6 +16,12 @@ CREATE TABLE IF NOT EXISTS users (
     status ENUM('active', 'suspended', 'frozen', 'closed') DEFAULT 'active',
     email_verified_at DATETIME,
     phone_verified_at DATETIME,
+    state VARCHAR(100) DEFAULT NULL,
+    zipcode VARCHAR(20) DEFAULT NULL,
+    account_type VARCHAR(50) DEFAULT 'Savings Account',
+    occupation VARCHAR(100) DEFAULT NULL,
+    date_of_birth DATE DEFAULT NULL,
+    sex VARCHAR(20) DEFAULT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     INDEX (email),
     INDEX (phone)

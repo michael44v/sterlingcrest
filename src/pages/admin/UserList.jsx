@@ -47,7 +47,14 @@ const UserList = () => {
     pin: '',
     initial_balance: '0',
     kyc_tier: '1',
-    base_date: ''
+    base_date: '',
+    state: '',
+    zipcode: '',
+    account_type: 'Savings Account',
+    occupation: '',
+    date_of_birth: '',
+    sex: '',
+    currency: 'USD'
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -63,7 +70,14 @@ const UserList = () => {
     swift_code: '',
     routing_code: '',
     max_transfer_limit: '',
-    profile_picture_url: ''
+    profile_picture_url: '',
+    state: '',
+    zipcode: '',
+    account_type: 'Savings Account',
+    occupation: '',
+    date_of_birth: '',
+    sex: '',
+    currency: 'USD'
   });
 
   const [seedTransactions, setSeedTransactions] = useState([]);
@@ -168,7 +182,14 @@ const UserList = () => {
         pin: formData.pin,
         kyc_tier: formData.kyc_tier,
         status: formData.status,
-        initial_balance: formData.initial_balance
+        initial_balance: formData.initial_balance,
+        state: formData.state,
+        zipcode: formData.zipcode,
+        account_type: formData.account_type,
+        occupation: formData.occupation,
+        date_of_birth: formData.date_of_birth,
+        sex: formData.sex,
+        currency: formData.currency
       });
       if (res.data.status === 'success') {
         toast.success(res.data.message);
@@ -211,7 +232,14 @@ const UserList = () => {
       swift_code: user.swift_code || '',
       routing_code: user.routing_code || '',
       max_transfer_limit: user.max_transfer_limit !== null ? String(user.max_transfer_limit) : '',
-      profile_picture_url: user.profile_picture_url || ''
+      profile_picture_url: user.profile_picture_url || '',
+      state: user.state || '',
+      zipcode: user.zipcode || '',
+      account_type: user.account_type || 'Savings Account',
+      occupation: user.occupation || '',
+      date_of_birth: user.date_of_birth || '',
+      sex: user.sex || '',
+      currency: user.currency || 'USD'
     });
     setModalType('edit_user_details');
   };
@@ -340,7 +368,14 @@ const UserList = () => {
                 pin: '',
                 kyc_tier: '1',
                 status: 'active',
-                initial_balance: '0'
+                initial_balance: '0',
+                state: '',
+                zipcode: '',
+                account_type: 'Savings Account',
+                occupation: '',
+                date_of_birth: '',
+                sex: '',
+                currency: 'USD'
               });
               setModalType('create_user');
             }}
@@ -561,6 +596,85 @@ const UserList = () => {
                   value={formData.initial_balance}
                   onChange={e => setFormData({ ...formData, initial_balance: e.target.value })}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="State"
+                  placeholder="e.g. California"
+                  value={formData.state}
+                  onChange={e => setFormData({ ...formData, state: e.target.value })}
+                />
+                <Input
+                  label="Zipcode"
+                  placeholder="e.g. 90210"
+                  value={formData.zipcode}
+                  onChange={e => setFormData({ ...formData, zipcode: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">Account Type</label>
+                  <select
+                    className="w-full p-2.5 border border-chase-border rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                    value={formData.account_type}
+                    onChange={e => setFormData({ ...formData, account_type: e.target.value })}
+                  >
+                    <option value="Savings Account">Savings Account</option>
+                    <option value="Checking Account">Checking Account</option>
+                    <option value="Current Account">Current Account</option>
+                    <option value="Business Account">Business Account</option>
+                  </select>
+                </div>
+                <Input
+                  label="Occupation"
+                  placeholder="e.g. Software Engineer"
+                  value={formData.occupation}
+                  onChange={e => setFormData({ ...formData, occupation: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  value={formData.date_of_birth}
+                  onChange={e => setFormData({ ...formData, date_of_birth: e.target.value })}
+                />
+                <div>
+                  <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">Sex</label>
+                  <select
+                    className="w-full p-2.5 border border-chase-border rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                    value={formData.sex}
+                    onChange={e => setFormData({ ...formData, sex: e.target.value })}
+                  >
+                    <option value="">Select Sex</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">Account Currency</label>
+                <select
+                  className="w-full p-2.5 border border-chase-border rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                  value={formData.currency}
+                  onChange={e => setFormData({ ...formData, currency: e.target.value })}
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="CAD">CAD (CA$)</option>
+                  <option value="AUD">AUD (A$)</option>
+                  <option value="JPY">JPY (¥)</option>
+                  <option value="INR">INR (₹)</option>
+                  <option value="CNY">CNY (¥)</option>
+                  <option value="CHF">CHF (CHF)</option>
+                  <option value="SGD">SGD (S$)</option>
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-gray-100">
@@ -899,6 +1013,85 @@ const UserList = () => {
                   value={editFormData.max_transfer_limit}
                   onChange={e => setEditFormData({ ...editFormData, max_transfer_limit: e.target.value })}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="State"
+                  placeholder="e.g. California"
+                  value={editFormData.state}
+                  onChange={e => setEditFormData({ ...editFormData, state: e.target.value })}
+                />
+                <Input
+                  label="Zipcode"
+                  placeholder="e.g. 90210"
+                  value={editFormData.zipcode}
+                  onChange={e => setEditFormData({ ...editFormData, zipcode: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">Account Type</label>
+                  <select
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                    value={editFormData.account_type}
+                    onChange={e => setEditFormData({ ...editFormData, account_type: e.target.value })}
+                  >
+                    <option value="Savings Account">Savings Account</option>
+                    <option value="Checking Account">Checking Account</option>
+                    <option value="Current Account">Current Account</option>
+                    <option value="Business Account">Business Account</option>
+                  </select>
+                </div>
+                <Input
+                  label="Occupation"
+                  placeholder="e.g. Software Engineer"
+                  value={editFormData.occupation}
+                  onChange={e => setEditFormData({ ...editFormData, occupation: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Date of Birth"
+                  type="date"
+                  value={editFormData.date_of_birth}
+                  onChange={e => setEditFormData({ ...editFormData, date_of_birth: e.target.value })}
+                />
+                <div>
+                  <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">Sex</label>
+                  <select
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                    value={editFormData.sex}
+                    onChange={e => setEditFormData({ ...editFormData, sex: e.target.value })}
+                  >
+                    <option value="">Select Sex</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">Account Currency</label>
+                <select
+                  className="w-full p-2.5 border border-gray-300 rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                  value={editFormData.currency}
+                  onChange={e => setEditFormData({ ...editFormData, currency: e.target.value })}
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="CAD">CAD (CA$)</option>
+                  <option value="AUD">AUD (A$)</option>
+                  <option value="JPY">JPY (¥)</option>
+                  <option value="INR">INR (₹)</option>
+                  <option value="CNY">CNY (¥)</option>
+                  <option value="CHF">CHF (CHF)</option>
+                  <option value="SGD">SGD (S$)</option>
+                </select>
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-gray-100">

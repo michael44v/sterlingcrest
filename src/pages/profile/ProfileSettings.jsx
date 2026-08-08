@@ -82,6 +82,59 @@ const ProfileSettings = () => {
               <div className="p-2 bg-chase-light rounded-lg text-chase-blue">
                 <User size={20} />
               </div>
+              <h2 className="text-xl font-bold text-chase-navy">Additional Details</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="opacity-80">
+                <Input
+                  label="Account Type"
+                  value={profile.account_type || 'Savings Account'}
+                  readOnly
+                />
+              </div>
+              <div className="opacity-80">
+                <Input
+                  label="Occupation"
+                  value={profile.occupation || 'N/A'}
+                  readOnly
+                />
+              </div>
+              <div className="opacity-80">
+                <Input
+                  label="State"
+                  value={profile.state || 'N/A'}
+                  readOnly
+                />
+              </div>
+              <div className="opacity-80">
+                <Input
+                  label="Zipcode"
+                  value={profile.zipcode || 'N/A'}
+                  readOnly
+                />
+              </div>
+              <div className="opacity-80">
+                <Input
+                  label="Date of Birth"
+                  value={profile.date_of_birth || 'N/A'}
+                  readOnly
+                />
+              </div>
+              <div className="opacity-80">
+                <Input
+                  label="Sex"
+                  value={profile.sex || 'N/A'}
+                  readOnly
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="bg-white p-6 rounded-2xl border border-chase-border shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-chase-light rounded-lg text-chase-blue">
+                <User size={20} />
+              </div>
               <h2 className="text-xl font-bold text-chase-navy">Personal Information</h2>
             </div>
 
