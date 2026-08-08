@@ -655,7 +655,7 @@ case 'get_transactions':
     $db = Database::getInstance()->getConnection();
 
     // 1. Get Account Details
-    $stmt = $db->prepare("SELECT id, balance, ledger_balance, account_number, kyc_tier FROM accounts WHERE user_id = ?");
+    $stmt = $db->prepare("SELECT id, balance, ledger_balance, account_number, kyc_tier, currency FROM accounts WHERE user_id = ?");
     $stmt->bind_param("i", $user['sub']);
     $stmt->execute();
     $account = $stmt->get_result()->fetch_assoc();
@@ -880,7 +880,7 @@ case 'get_transactions':
     case 'get_profile':
         $user = require_auth();
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT id, full_name, email, phone, role, status, profile_picture_url, created_at FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT id, full_name, email, phone, role, status, profile_picture_url, state, zipcode, account_type, occupation, date_of_birth, sex, created_at FROM users WHERE id = ?");
         $stmt->bind_param("i", $user['sub']);
         $stmt->execute();
         $profile = $stmt->get_result()->fetch_assoc();
@@ -1015,7 +1015,8 @@ case 'get_transactions':
 
         $db = Database::getInstance()->getConnection();
         $res = $db->query("SELECT u.id, u.full_name, u.email, u.phone, u.role, u.status, u.profile_picture_url,
-                                  a.account_number, a.balance, a.ledger_balance, a.kyc_tier, a.swift_code, a.routing_code, a.max_transfer_limit
+                                  u.state, u.zipcode, u.account_type, u.occupation, u.date_of_birth, u.sex,
+                                  a.account_number, a.balance, a.ledger_balance, a.kyc_tier, a.swift_code, a.routing_code, a.max_transfer_limit, a.currency
                            FROM users u JOIN accounts a ON u.id = a.user_id ORDER BY u.created_at DESC");
         $users = [];
         while ($row = $res->fetch_assoc()) { $users[] = $row; }
@@ -1035,8 +1036,15 @@ case 'get_transactions':
         $db->begin_transaction();
         try {
             // Update users table
-            $stmt = $db->prepare("UPDATE users SET full_name = ?, email = ?, phone = ?, status = ?, profile_picture_url = ? WHERE id = ?");
-            $stmt->bind_param("sssssi", $data['full_name'], $data['email'], $data['phone'], $data['status'], $data['profile_picture_url'], $data['user_id']);
+            $state = !empty($data['state']) ? $data['state'] : null;
+            $zipcode = !empty($data['zipcode']) ? $data['zipcode'] : null;
+            $account_type = !empty($data['account_type']) ? $data['account_type'] : 'Savings Account';
+            $occupation = !empty($data['occupation']) ? $data['occupation'] : null;
+            $date_of_birth = !empty($data['date_of_birth']) ? $data['date_of_birth'] : null;
+            $sex = !empty($data['sex']) ? $data['sex'] : null;
+
+            $stmt = $db->prepare("UPDATE users SET full_name = ?, email = ?, phone = ?, status = ?, profile_picture_url = ?, state = ?, zipcode = ?, account_type = ?, occupation = ?, date_of_birth = ?, sex = ? WHERE id = ?");
+            $stmt->bind_param("sssssssssssi", $data['full_name'], $data['email'], $data['phone'], $data['status'], $data['profile_picture_url'], $state, $zipcode, $account_type, $occupation, $date_of_birth, $sex, $data['user_id']);
             $stmt->execute();
 
             // Update accounts table
@@ -1045,9 +1053,10 @@ case 'get_transactions':
             $balance = (float)$data['balance'];
             $ledger_balance = (float)$data['ledger_balance'];
             $kyc_tier = (int)$data['kyc_tier'];
+            $currency = !empty($data['currency']) ? $data['currency'] : 'USD';
 
-            $stmt2 = $db->prepare("UPDATE accounts SET kyc_tier = ?, swift_code = ?, routing_code = ?, max_transfer_limit = ?, balance = ?, ledger_balance = ? WHERE user_id = ?");
-            $stmt2->bind_param("isssddi", $kyc_tier, $data['swift_code'], $data['routing_code'], $limit, $balance, $ledger_balance, $data['user_id']);
+            $stmt2 = $db->prepare("UPDATE accounts SET kyc_tier = ?, swift_code = ?, routing_code = ?, max_transfer_limit = ?, balance = ?, ledger_balance = ?, currency = ? WHERE user_id = ?");
+            $stmt2->bind_param("isssddsi", $kyc_tier, $data['swift_code'], $data['routing_code'], $limit, $balance, $ledger_balance, $currency, $data['user_id']);
             $stmt2->execute();
 
             $db->commit();
@@ -1519,16 +1528,24 @@ case 'get_transactions':
         $kyc_tier = isset($data['kyc_tier']) ? (int)$data['kyc_tier'] : 1;
         $initial_balance = isset($data['initial_balance']) ? (float)$data['initial_balance'] : 0.00;
 
+        $state = !empty($data['state']) ? $data['state'] : null;
+        $zipcode = !empty($data['zipcode']) ? $data['zipcode'] : null;
+        $account_type = !empty($data['account_type']) ? $data['account_type'] : 'Savings Account';
+        $occupation = !empty($data['occupation']) ? $data['occupation'] : null;
+        $date_of_birth = !empty($data['date_of_birth']) ? $data['date_of_birth'] : null;
+        $sex = !empty($data['sex']) ? $data['sex'] : null;
+        $currency = !empty($data['currency']) ? $data['currency'] : 'USD';
+
         $db->begin_transaction();
         try {
-            $stmt = $db->prepare("INSERT INTO users (full_name, email, phone, password_hash, pin_hash, status, email_verified_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
-            $stmt->bind_param("ssssss", $data['full_name'], $data['email'], $data['phone'], $password_hash, $pin_hash, $status);
+            $stmt = $db->prepare("INSERT INTO users (full_name, email, phone, password_hash, pin_hash, status, email_verified_at, state, zipcode, account_type, occupation, date_of_birth, sex) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("ssssssssssss", $data['full_name'], $data['email'], $data['phone'], $password_hash, $pin_hash, $status, $state, $zipcode, $account_type, $occupation, $date_of_birth, $sex);
             $stmt->execute();
             $user_id = $db->insert_id;
 
             $account_number = str_pad(random_int(0, 9999999999), 10, '0', STR_PAD_LEFT);
-            $stmt = $db->prepare("INSERT INTO accounts (user_id, account_number, balance, ledger_balance, kyc_tier) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("isddi", $user_id, $account_number, $initial_balance, $initial_balance, $kyc_tier);
+            $stmt = $db->prepare("INSERT INTO accounts (user_id, account_number, balance, ledger_balance, kyc_tier, currency) VALUES (?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("isddis", $user_id, $account_number, $initial_balance, $initial_balance, $kyc_tier, $currency);
             $stmt->execute();
             $account_id = $db->insert_id;
 
