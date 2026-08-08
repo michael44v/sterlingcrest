@@ -14,7 +14,11 @@ import {
   Database,
   KeyRound,
   Lock,
-  Calendar
+  Calendar,
+  Edit3,
+  UploadCloud,
+  Eye,
+  Trash2
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
@@ -45,6 +49,25 @@ const UserList = () => {
     kyc_tier: '1',
     base_date: ''
   });
+
+  const [editFormData, setEditFormData] = useState({
+    user_id: '',
+    full_name: '',
+    email: '',
+    phone: '',
+    status: 'active',
+    kyc_tier: '1',
+    account_number: '',
+    balance: '0',
+    ledger_balance: '0',
+    swift_code: '',
+    routing_code: '',
+    max_transfer_limit: '',
+    profile_picture_url: ''
+  });
+
+  const [seedTransactions, setSeedTransactions] = useState([]);
+
   const [submitting, setSubmitting] = useState(false);
 
   const fetchUsers = async () => {
@@ -161,13 +184,80 @@ const UserList = () => {
     }
   };
 
+  const handleProfilePictureUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditFormData(prev => ({ ...prev, profile_picture_url: reader.result }));
+        toast.success("Profile picture loaded! Save details to persist.");
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleOpenEditModal = (user) => {
+    setActiveUser(user);
+    setEditFormData({
+      user_id: user.id,
+      full_name: user.full_name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      status: user.status || 'active',
+      kyc_tier: String(user.kyc_tier ?? '1'),
+      account_number: user.account_number || '',
+      balance: String(user.balance ?? '0'),
+      ledger_balance: String(user.ledger_balance ?? '0'),
+      swift_code: user.swift_code || '',
+      routing_code: user.routing_code || '',
+      max_transfer_limit: user.max_transfer_limit !== null ? String(user.max_transfer_limit) : '',
+      profile_picture_url: user.profile_picture_url || ''
+    });
+    setModalType('edit_user_details');
+  };
+
+  const handleUpdateUserDetails = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      const res = await api.post('?action=admin_update_user_details', editFormData);
+      if (res.data.status === 'success') {
+        toast.success(res.data.message);
+        setModalType(null);
+        fetchUsers();
+      } else {
+        toast.error(res.data.message);
+      }
+    } catch (err) {
+      toast.error('Failed to update user details');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenSeedModal = (u) => {
+    setActiveUser(u);
+    setFormData({ ...formData, base_date: new Date().toISOString().split('T')[0] });
+    setSeedTransactions([
+      { type: 'credit', channel: 'deposit', amount: 1500.00, narration: 'Initial Wire Transfer Credit', days_offset: -6 },
+      { type: 'debit', channel: 'internal_transfer', amount: 48.62, narration: "Kat's Bakery", days_offset: -5 },
+      { type: 'debit', channel: 'fee', amount: 9.99, narration: 'Bundle TV Subscription', days_offset: -4 },
+      { type: 'credit', channel: 'deposit', amount: 2500.00, narration: 'Monthly Salary Credit', days_offset: -3 },
+      { type: 'debit', channel: 'internal_transfer', amount: 124.50, narration: 'Amazon UK Marketplace', days_offset: -2 },
+      { type: 'debit', channel: 'internal_transfer', amount: 114.47, narration: 'Starling Transfer to Vault', days_offset: -1 },
+      { type: 'credit', channel: 'deposit', amount: 82.20, narration: 'Refund Amazon UK', days_offset: 0 }
+    ]);
+    setModalType('seed');
+  };
+
   const handleSeedTransactions = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       const res = await api.post('?action=admin_seed_transactions', {
         user_id: activeUser.id,
-        base_date: formData.base_date
+        base_date: formData.base_date,
+        transactions: seedTransactions
       });
       if (res.data.status === 'success') {
         toast.success(res.data.message);
@@ -289,7 +379,15 @@ const UserList = () => {
                 <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 md:px-6 py-4">
                     <div className="flex items-center gap-2 md:gap-3">
-                      <UserCircle className="text-gray-400 shrink-0" size={32} />
+                      {u.profile_picture_url ? (
+                        <img
+                          src={u.profile_picture_url}
+                          alt={u.full_name}
+                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-gray-200"
+                        />
+                      ) : (
+                        <UserCircle className="text-gray-400 shrink-0" size={32} />
+                      )}
                       <div>
                         <p className="font-bold text-chase-navy text-sm md:text-base leading-tight">{u.full_name}</p>
                         <p className="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">{u.email}</p>
@@ -338,13 +436,19 @@ const UserList = () => {
                   <td className="px-4 md:px-6 py-4 text-right">
                     <div className="flex justify-end gap-1 md:gap-1.5 flex-wrap max-w-[120px] md:max-w-none ml-auto">
                       <button
+                        onClick={() => handleOpenEditModal(u)}
+                        className="p-1.5 md:p-2 hover:bg-orange-50 text-orange-600 rounded-lg transition-colors" title="View Details & Edit"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                      <button
                         onClick={() => { setActiveUser(u); setModalType('balance'); setFormData({ ...formData, amount: '', narration: '', type: 'credit' }) }}
                         className="p-1.5 md:p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors" title="Add / Adjust Money"
                       >
                         <DollarSign size={16} />
                       </button>
                       <button
-                        onClick={() => { setActiveUser(u); setModalType('seed'); setFormData({ ...formData, base_date: new Date().toISOString().split('T')[0] }) }}
+                        onClick={() => handleOpenSeedModal(u)}
                         className="p-1.5 md:p-2 hover:bg-purple-50 text-purple-600 rounded-lg transition-colors" title="Seed Realistic Transaction History"
                       >
                         <Database size={16} />
@@ -515,10 +619,10 @@ const UserList = () => {
       {/* Seed Transaction History Modal */}
       {modalType === 'seed' && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-xl">
-            <h2 className="text-xl font-bold text-chase-navy mb-2">Seed Transaction History</h2>
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-chase-navy mb-2">Seed Transaction History: {activeUser?.full_name}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              This will automatically populate <strong>{activeUser?.full_name}</strong>'s statement with a realistic multi-day transactional sequence, spreading back from the selected base date.
+              Configure exactly 7 transactions to seed into the statement. Seeding will <strong>not</strong> modify the user's current account balance.
             </p>
             <form onSubmit={handleSeedTransactions} className="space-y-4">
               <div className="space-y-1.5">
@@ -526,7 +630,7 @@ const UserList = () => {
                 <div className="relative">
                   <input
                     type="date"
-                    className="w-full p-3 border border-chase-border rounded-lg focus:border-chase-blue outline-none transition-colors text-sm"
+                    className="w-full p-3 border border-chase-border rounded-lg focus:border-chase-blue outline-none transition-colors text-sm bg-white"
                     required
                     value={formData.base_date}
                     onChange={e => setFormData({ ...formData, base_date: e.target.value })}
@@ -534,17 +638,95 @@ const UserList = () => {
                 </div>
               </div>
 
-              <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl text-xs text-purple-800 space-y-1">
-                <p className="font-bold">Generated sequence includes:</p>
-                <ul className="list-disc pl-4 space-y-0.5">
-                  <li>Initial Wire Credit (+£1,500.00)</li>
-                  <li>Kat's Bakery Debit (-£48.62)</li>
-                  <li>Bundle TV Subscription Debit (-£9.99)</li>
-                  <li>Monthly Salary Credit (+£2,500.00)</li>
-                  <li>Amazon UK Debit (-£124.50)</li>
-                  <li>Starling Transfer Debit (-£114.47)</li>
-                  <li>Refund Amazon Credit (+£82.20)</li>
-                </ul>
+              <div className="space-y-3 max-h-[50vh] overflow-y-auto p-3 bg-gray-50 rounded-xl border border-gray-100">
+                <h4 className="text-xs font-bold text-chase-navy uppercase tracking-wider mb-2">Edit Seeding Sequence</h4>
+                {seedTransactions.map((tx, idx) => (
+                  <div key={idx} className="p-3 bg-white rounded-lg border border-gray-200 shadow-sm space-y-3">
+                    <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                      <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-0.5 rounded-full">Transaction #{idx + 1}</span>
+                      <select
+                        className="text-xs border border-gray-300 rounded px-2 py-1 bg-white font-bold text-gray-700 outline-none focus:border-chase-blue"
+                        value={tx.type}
+                        onChange={e => {
+                          const updated = [...seedTransactions];
+                          updated[idx].type = e.target.value;
+                          setSeedTransactions(updated);
+                        }}
+                      >
+                        <option value="credit">CREDIT (+)</option>
+                        <option value="debit">DEBIT (-)</option>
+                      </select>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Narration</label>
+                        <input
+                          type="text"
+                          required
+                          className="w-full text-xs p-2 border border-gray-300 rounded outline-none focus:border-chase-blue"
+                          value={tx.narration}
+                          onChange={e => {
+                            const updated = [...seedTransactions];
+                            updated[idx].narration = e.target.value;
+                            setSeedTransactions(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Amount (GBP)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          required
+                          min="0.01"
+                          className="w-full text-xs p-2 border border-gray-300 rounded outline-none font-bold focus:border-chase-blue"
+                          value={tx.amount}
+                          onChange={e => {
+                            const updated = [...seedTransactions];
+                            updated[idx].amount = parseFloat(e.target.value) || 0;
+                            setSeedTransactions(updated);
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Channel / Type</label>
+                        <select
+                          className="w-full text-xs p-2 border border-gray-300 rounded bg-white outline-none focus:border-chase-blue"
+                          value={tx.channel}
+                          onChange={e => {
+                            const updated = [...seedTransactions];
+                            updated[idx].channel = e.target.value;
+                            setSeedTransactions(updated);
+                          }}
+                        >
+                          <option value="deposit">Deposit</option>
+                          <option value="internal_transfer">Local Transfer</option>
+                          <option value="external_transfer">International Transfer</option>
+                          <option value="fee">Fee</option>
+                          <option value="adjustment">Adjustment</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-400 block mb-1">Days Offset (e.g. -5 means 5 days ago)</label>
+                        <input
+                          type="number"
+                          required
+                          className="w-full text-xs p-2 border border-gray-300 rounded outline-none focus:border-chase-blue"
+                          value={tx.days_offset}
+                          onChange={e => {
+                            const updated = [...seedTransactions];
+                            updated[idx].days_offset = parseInt(e.target.value) || 0;
+                            setSeedTransactions(updated);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -552,6 +734,176 @@ const UserList = () => {
                 <Button type="submit" className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold" loading={submitting}>
                   Seed History
                 </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Details Modal */}
+      {modalType === 'edit_user_details' && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-chase-navy mb-4">Edit User Account: {activeUser?.full_name}</h2>
+            <form onSubmit={handleUpdateUserDetails} className="space-y-6">
+
+              {/* Profile Picture Upload Section */}
+              <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div className="relative group w-24 h-24 shrink-0 rounded-full overflow-hidden border-2 border-orange-500 shadow-md bg-white flex items-center justify-center">
+                  {editFormData.profile_picture_url ? (
+                    <img
+                      src={editFormData.profile_picture_url}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <UserCircle className="text-gray-300 w-20 h-20" />
+                  )}
+                  <label className="absolute inset-0 bg-black/40 text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                    <UploadCloud size={20} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleProfilePictureUpload}
+                    />
+                  </label>
+                </div>
+                <div className="space-y-2 flex-1 w-full">
+                  <h4 className="text-sm font-bold text-chase-navy">User Profile Picture</h4>
+                  <p className="text-xs text-gray-500">Upload a JPG or PNG (simulates Cloudinary upload). The picture shows instantly below and across the platform.</p>
+                  <div className="flex gap-2">
+                    <label className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5">
+                      <UploadCloud size={14} /> Upload Picture
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleProfilePictureUpload}
+                      />
+                    </label>
+                    {editFormData.profile_picture_url && (
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData({ ...editFormData, profile_picture_url: '' })}
+                        className="px-3 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded text-xs font-bold transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Or enter direct image URL..."
+                    className="w-full p-2 border border-gray-300 rounded text-xs outline-none focus:border-chase-blue mt-1"
+                    value={editFormData.profile_picture_url}
+                    onChange={e => setEditFormData({ ...editFormData, profile_picture_url: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Editable Fields Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Full Name"
+                  required
+                  value={editFormData.full_name}
+                  onChange={e => setEditFormData({ ...editFormData, full_name: e.target.value })}
+                />
+                <Input
+                  label="Email Address"
+                  type="email"
+                  required
+                  value={editFormData.email}
+                  onChange={e => setEditFormData({ ...editFormData, email: e.target.value })}
+                />
+                <Input
+                  label="Phone Number"
+                  required
+                  value={editFormData.phone}
+                  onChange={e => setEditFormData({ ...editFormData, phone: e.target.value })}
+                />
+                <Input
+                  label="Account Number"
+                  required
+                  value={editFormData.account_number}
+                  onChange={e => setEditFormData({ ...editFormData, account_number: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="Account Balance (GBP)"
+                  type="number"
+                  step="0.01"
+                  required
+                  value={editFormData.balance}
+                  onChange={e => setEditFormData({ ...editFormData, balance: e.target.value })}
+                />
+                <Input
+                  label="Ledger Balance (GBP)"
+                  type="number"
+                  step="0.01"
+                  required
+                  value={editFormData.ledger_balance}
+                  onChange={e => setEditFormData({ ...editFormData, ledger_balance: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="SWIFT Code"
+                  placeholder="e.g. STRCGB2L"
+                  value={editFormData.swift_code}
+                  onChange={e => setEditFormData({ ...editFormData, swift_code: e.target.value })}
+                />
+                <Input
+                  label="Routing Code"
+                  placeholder="e.g. 10-20-30"
+                  value={editFormData.routing_code}
+                  onChange={e => setEditFormData({ ...editFormData, routing_code: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">KYC Tier</label>
+                  <select
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                    value={editFormData.kyc_tier}
+                    onChange={e => setEditFormData({ ...editFormData, kyc_tier: e.target.value })}
+                  >
+                    <option value="0">Tier 0 (Unverified)</option>
+                    <option value="1">Tier 1 (Basic)</option>
+                    <option value="2">Tier 2 (Verified)</option>
+                    <option value="3">Tier 3 (Premium)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-chase-navy uppercase block mb-1.5">Account Status</label>
+                  <select
+                    className="w-full p-2.5 border border-gray-300 rounded-lg focus:border-chase-blue outline-none text-sm bg-white"
+                    value={editFormData.status}
+                    onChange={e => setEditFormData({ ...editFormData, status: e.target.value })}
+                  >
+                    <option value="active">Active</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="frozen">Frozen</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+                <Input
+                  label="Manual Transfer Limit (GBP)"
+                  placeholder="Bypass KYC tier if set"
+                  type="number"
+                  value={editFormData.max_transfer_limit}
+                  onChange={e => setEditFormData({ ...editFormData, max_transfer_limit: e.target.value })}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-gray-100">
+                <Button variant="secondary" className="flex-1" onClick={() => setModalType(null)}>Cancel</Button>
+                <Button type="submit" className="flex-1" loading={submitting}>Save Changes</Button>
               </div>
             </form>
           </div>

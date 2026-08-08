@@ -488,7 +488,7 @@ case 'get_transactions':
             json_response("error", "Invalid transaction PIN");
         }
 
-        $stmt1 = $db->prepare("SELECT id, balance, kyc_tier FROM accounts WHERE user_id = ?");
+        $stmt1 = $db->prepare("SELECT id, balance, kyc_tier, max_transfer_limit FROM accounts WHERE user_id = ?");
         $stmt1->bind_param("i", $user['sub']);
         $stmt1->execute();
         $sender = $stmt1->get_result()->fetch_assoc();
@@ -507,10 +507,12 @@ case 'get_transactions':
 
             // Tiered Limits
             $limits = [1 => 1000, 2 => 5000, 3 => 500000000];
-            $limit = $limits[$sender['kyc_tier']] ?? 0;
+            $limit = ($sender['max_transfer_limit'] !== null && $sender['max_transfer_limit'] !== '')
+                ? (float)$sender['max_transfer_limit']
+                : ($limits[$sender['kyc_tier']] ?? 0);
 
             if ($data['amount'] > $limit) {
-                json_response("error", "Transfer amount exceeds your current KYC tier limit of $$limit.");
+                json_response("error", "Transfer amount exceeds your current limit of $$limit.");
             }
 
             // Today's total sent (including internal and external transfers)
@@ -582,10 +584,12 @@ case 'get_transactions':
 
             // Tiered Limits: Tier 1 ($0), Tier 2 ($5,000), Tier 3 ($50,000)
             $limits = [1 => 1000, 2 => 5000, 3 => 500000000];
-            $limit = $limits[$sender['kyc_tier']] ?? 0;
+            $limit = ($sender['max_transfer_limit'] !== null && $sender['max_transfer_limit'] !== '')
+                ? (float)$sender['max_transfer_limit']
+                : ($limits[$sender['kyc_tier']] ?? 0);
 
             if ($data['amount'] > $limit) {
-                json_response("error", "Transfer amount exceeds your current KYC tier limit of $$limit.");
+                json_response("error", "Transfer amount exceeds your current limit of $$limit.");
             }
 
             // Today's total sent (including internal and external transfers)
@@ -876,7 +880,7 @@ case 'get_transactions':
     case 'get_profile':
         $user = require_auth();
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("SELECT id, full_name, email, phone, role, status, created_at FROM users WHERE id = ?");
+        $stmt = $db->prepare("SELECT id, full_name, email, phone, role, status, profile_picture_url, created_at FROM users WHERE id = ?");
         $stmt->bind_param("i", $user['sub']);
         $stmt->execute();
         $profile = $stmt->get_result()->fetch_assoc();
@@ -924,11 +928,21 @@ case 'get_transactions':
     case 'update_profile':
         $user = require_auth();
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
-        if (empty($_GET['full_name']) || empty($_GET['phone'])) json_response("error", "Missing fields");
+
+        $full_name = $_GET['full_name'] ?? $data['full_name'] ?? '';
+        $phone = $_GET['phone'] ?? $data['phone'] ?? '';
+        $profile_picture_url = $_GET['profile_picture_url'] ?? $data['profile_picture_url'] ?? null;
+
+        if (empty($full_name) || empty($phone)) json_response("error", "Missing fields");
 
         $db = Database::getInstance()->getConnection();
-        $stmt = $db->prepare("UPDATE users SET full_name = ?, phone = ? WHERE id = ?");
-        $stmt->bind_param("ssi", $_GET['full_name'], $_GET['phone'], $user['sub']);
+        if ($profile_picture_url !== null) {
+            $stmt = $db->prepare("UPDATE users SET full_name = ?, phone = ?, profile_picture_url = ? WHERE id = ?");
+            $stmt->bind_param("sssi", $full_name, $phone, $profile_picture_url, $user['sub']);
+        } else {
+            $stmt = $db->prepare("UPDATE users SET full_name = ?, phone = ? WHERE id = ?");
+            $stmt->bind_param("ssi", $full_name, $phone, $user['sub']);
+        }
         $stmt->execute();
         json_response("success", "Profile updated");
         break;
@@ -1000,11 +1014,48 @@ case 'get_transactions':
         if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
 
         $db = Database::getInstance()->getConnection();
-        $res = $db->query("SELECT u.id, u.full_name, u.email, u.phone, u.role, u.status, a.account_number, a.balance, a.kyc_tier
+        $res = $db->query("SELECT u.id, u.full_name, u.email, u.phone, u.role, u.status, u.profile_picture_url,
+                                  a.account_number, a.balance, a.ledger_balance, a.kyc_tier, a.swift_code, a.routing_code, a.max_transfer_limit
                            FROM users u JOIN accounts a ON u.id = a.user_id ORDER BY u.created_at DESC");
         $users = [];
         while ($row = $res->fetch_assoc()) { $users[] = $row; }
         json_response("success", "User list", $users);
+        break;
+
+    case 'admin_update_user_details':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['user_id'])) {
+            json_response("error", "User ID required");
+        }
+
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            // Update users table
+            $stmt = $db->prepare("UPDATE users SET full_name = ?, email = ?, phone = ?, status = ?, profile_picture_url = ? WHERE id = ?");
+            $stmt->bind_param("sssssi", $data['full_name'], $data['email'], $data['phone'], $data['status'], $data['profile_picture_url'], $data['user_id']);
+            $stmt->execute();
+
+            // Update accounts table
+            // max_transfer_limit can be null or numeric
+            $limit = isset($data['max_transfer_limit']) && $data['max_transfer_limit'] !== '' ? (float)$data['max_transfer_limit'] : null;
+            $balance = (float)$data['balance'];
+            $ledger_balance = (float)$data['ledger_balance'];
+            $kyc_tier = (int)$data['kyc_tier'];
+
+            $stmt2 = $db->prepare("UPDATE accounts SET kyc_tier = ?, swift_code = ?, routing_code = ?, max_transfer_limit = ?, balance = ?, ledger_balance = ? WHERE user_id = ?");
+            $stmt2->bind_param("isssddi", $kyc_tier, $data['swift_code'], $data['routing_code'], $limit, $balance, $ledger_balance, $data['user_id']);
+            $stmt2->execute();
+
+            $db->commit();
+            json_response("success", "User details and account parameters updated successfully");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Failed to update user details: " . $e->getMessage());
+        }
         break;
 
     case 'admin_get_users_emails':
@@ -1522,45 +1573,63 @@ case 'get_transactions':
                 $base_time = time();
             }
 
-            $mocks = [
-                ['type' => 'credit', 'channel' => 'deposit', 'amount' => 1500.00, 'narration' => 'Initial Wire Transfer Credit', 'days_offset' => -6],
-                ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 48.62, 'narration' => "Kat's Bakery", 'days_offset' => -5],
-                ['type' => 'debit', 'channel' => 'fee', 'amount' => 9.99, 'narration' => 'Bundle TV Subscription', 'days_offset' => -4],
-                ['type' => 'credit', 'channel' => 'deposit', 'amount' => 2500.00, 'narration' => 'Monthly Salary Credit', 'days_offset' => -3],
-                ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 124.50, 'narration' => 'Amazon UK Marketplace', 'days_offset' => -2],
-                ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 114.47, 'narration' => 'Starling Transfer to Vault', 'days_offset' => -1],
-                ['type' => 'credit', 'channel' => 'deposit', 'amount' => 82.20, 'narration' => 'Refund Amazon UK', 'days_offset' => 0],
-            ];
+            // Check if editable transactions are provided, else fallback to default mocks
+            if (!empty($data['transactions']) && is_array($data['transactions'])) {
+                $mocks = $data['transactions'];
+            } else {
+                $mocks = [
+                    ['type' => 'credit', 'channel' => 'deposit', 'amount' => 1500.00, 'narration' => 'Initial Wire Transfer Credit', 'days_offset' => -6],
+                    ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 48.62, 'narration' => "Kat's Bakery", 'days_offset' => -5],
+                    ['type' => 'debit', 'channel' => 'fee', 'amount' => 9.99, 'narration' => 'Bundle TV Subscription', 'days_offset' => -4],
+                    ['type' => 'credit', 'channel' => 'deposit', 'amount' => 2500.00, 'narration' => 'Monthly Salary Credit', 'days_offset' => -3],
+                    ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 124.50, 'narration' => 'Amazon UK Marketplace', 'days_offset' => -2],
+                    ['type' => 'debit', 'channel' => 'internal_transfer', 'amount' => 114.47, 'narration' => 'Starling Transfer to Vault', 'days_offset' => -1],
+                    ['type' => 'credit', 'channel' => 'deposit', 'amount' => 82.20, 'narration' => 'Refund Amazon UK', 'days_offset' => 0],
+                ];
+            }
 
-            // Clear existing transactions for this account to avoid duplicate keys/references and keep the history clean
+            // Clear existing transactions for this account to keep statement clean
             $stmt_del = $db->prepare("DELETE FROM transactions WHERE account_id = ?");
             $stmt_del->bind_param("i", $acc['id']);
             $stmt_del->execute();
 
-            $current_balance = 0.00;
-            foreach ($mocks as $idx => $m) {
+            // Calculate starting running balance so that at the end of sequence,
+            // the balance equals the CURRENT unmodified account balance exactly.
+            $current_balance = (float)$acc['balance'];
+            $net_change = 0.0;
+            foreach ($mocks as $m) {
+                $amt = (float)$m['amount'];
                 if ($m['type'] === 'credit') {
-                    $current_balance += $m['amount'];
+                    $net_change += $amt;
                 } else {
-                    $current_balance -= $m['amount'];
+                    $net_change -= $amt;
+                }
+            }
+            $running_balance = $current_balance - $net_change;
+
+            foreach ($mocks as $idx => $m) {
+                $amt = (float)$m['amount'];
+                if ($m['type'] === 'credit') {
+                    $running_balance += $amt;
+                } else {
+                    $running_balance -= $amt;
                 }
 
-                $tx_time = $base_time + ($m['days_offset'] * 86400);
+                $days = isset($m['days_offset']) ? (int)$m['days_offset'] : 0;
+                $tx_time = $base_time + ($days * 86400);
                 $tx_date = date('Y-m-d H:i:s', $tx_time);
                 $ref = "TXN" . $tx_time . $idx . strtoupper(bin2hex(random_bytes(2)));
+                $channel = !empty($m['channel']) ? $m['channel'] : ($m['type'] === 'credit' ? 'deposit' : 'internal_transfer');
 
                 $stmt_ins = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, created_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed')");
-                $stmt_ins->bind_param("issddsss", $acc['id'], $m['type'], $m['channel'], $m['amount'], $current_balance, $m['narration'], $ref, $tx_date);
+                $stmt_ins->bind_param("issddsss", $acc['id'], $m['type'], $channel, $amt, $running_balance, $m['narration'], $ref, $tx_date);
                 $stmt_ins->execute();
             }
 
-            // Update account balance
-            $stmt_up = $db->prepare("UPDATE accounts SET balance = ?, ledger_balance = ? WHERE id = ?");
-            $stmt_up->bind_param("ddi", $current_balance, $current_balance, $acc['id']);
-            $stmt_up->execute();
+            // Do NOT update accounts balance or ledger_balance to respect: "seeding must not modify user balance."
 
             $db->commit();
-            json_response("success", "Realistic transaction history seeded successfully!", ["final_balance" => $current_balance]);
+            json_response("success", "Realistic transaction history seeded successfully! Balance was kept untouched.", ["final_balance" => $current_balance]);
         } catch (Exception $e) {
             $db->rollback();
             json_response("error", "Seeding failed: " . $e->getMessage());
