@@ -120,7 +120,7 @@ const Login = () => {
     if (result.success) {
       toast.success('Login successful');
       navigate('/dashboard');
-    } else if (result.status === 'suspended') {
+    } else if (result.status === 'restricted') {
       setShowBlockedModal(true);
     } else if (result.pin_required) {
       setShowPinField(true);
