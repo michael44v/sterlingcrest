@@ -396,7 +396,7 @@ const SendMoney = () => {
                 <Input
                     label="Account Name"
                     placeholder="Full name on the account"
-                    value={formData.manual_account_name}
+                    
                     onChange={(e) => setFormData({...formData, manual_account_name: e.target.value})}
                     required
                 />
