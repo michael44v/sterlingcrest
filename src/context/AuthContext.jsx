@@ -26,6 +26,8 @@ export const AuthProvider = ({ children }) => {
         return { success: true };
       } else if (response.data.status === 'pin_required') {
         return { success: false, pin_required: true, message: response.data.message };
+      } else if (response.data.status === 'restricted') {
+        return { success: false, status: 'restricted', message: response.data.message };
       } else {
         return { success: false, message: response.data.message };
       }
