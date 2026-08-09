@@ -358,6 +358,8 @@ case 'get_transactions':
             t.reference,
             t.status,
             t.created_at,
+            t.external_bank_name,
+            t.external_account_name,
  
             -- Own account (the authenticated user)
             own_acc.account_number  AS own_account_number,
@@ -366,7 +368,10 @@ case 'get_transactions':
             -- Counterparty (the other side of the transfer, may be NULL for
             -- deposits, fees, reversals that have no counterparty)
             cp_acc.account_number   AS counterparty_account_number,
-            cp_usr.full_name        AS counterparty_name
+            cp_usr.full_name        AS counterparty_name,
+
+            -- International transfer fields
+            it.account_number       AS international_account_number
  
         FROM transactions t
  
@@ -375,6 +380,8 @@ case 'get_transactions':
  
         LEFT JOIN accounts cp_acc ON cp_acc.id = t.counterparty_account_id
         LEFT JOIN users    cp_usr ON cp_usr.id = cp_acc.user_id
+
+        LEFT JOIN international_transfers it ON it.transaction_id = t.id
  
         WHERE t.account_id = (
             SELECT id FROM accounts WHERE user_id = ? LIMIT 1
@@ -399,8 +406,13 @@ case 'get_transactions':
         if ($row['type'] === 'debit') {
             $row['sender_name']       = $row['own_name'];
             $row['sender_account']    = $row['own_account_number'];
-            $row['recipient_name']    = $row['counterparty_name'];
-            $row['recipient_account'] = $row['counterparty_account_number'];
+            if ($row['channel'] === 'external_transfer') {
+                $row['recipient_name']    = $row['external_account_name'];
+                $row['recipient_account'] = $row['international_account_number'];
+            } else {
+                $row['recipient_name']    = $row['counterparty_name'];
+                $row['recipient_account'] = $row['counterparty_account_number'];
+            }
         } else {
             $row['sender_name']       = $row['counterparty_name'];
             $row['sender_account']    = $row['counterparty_account_number'];
@@ -410,7 +422,9 @@ case 'get_transactions':
  
         // Strip raw fields — frontend doesn't need them
         unset($row['own_name'], $row['own_account_number'],
-              $row['counterparty_name'], $row['counterparty_account_number']);
+              $row['counterparty_name'], $row['counterparty_account_number'],
+              $row['external_bank_name'], $row['external_account_name'],
+              $row['international_account_number']);
  
         $rows[] = $row;
     }
@@ -470,7 +484,8 @@ case 'get_transactions':
 
         $db = Database::getInstance()->getConnection();
 
-        $stmt = $db->prepare("SELECT pin_hash FROM users WHERE id = ?");
+        // 1. Verify transaction PIN
+        $stmt = $db->prepare("SELECT pin_hash, email, full_name FROM users WHERE id = ?");
         $stmt->bind_param("i", $user['sub']);
         $stmt->execute();
         $u = $stmt->get_result()->fetch_assoc();
@@ -478,7 +493,37 @@ case 'get_transactions':
             json_response("error", "Invalid transaction PIN");
         }
 
-        $stmt1 = $db->prepare("SELECT id, balance, kyc_tier, max_transfer_limit FROM accounts WHERE user_id = ?");
+        // 2. Check/Verify OTP
+        if (empty($data['otp'])) {
+            // OTP is not provided yet, generate and send it
+            $otp = Security::generateOTP();
+            $expires_at = date('Y-m-d H:i:s', time() + 600); // 10 minutes
+
+            $stmt_otp = $db->prepare("INSERT INTO otp_codes (user_id, code, type, expires_at) VALUES (?, ?, 'transfer', ?)");
+            $stmt_otp->bind_param("iss", $user['sub'], $otp, $expires_at);
+            $stmt_otp->execute();
+
+            EmailService::sendOTPEmail($u['email'], $u['full_name'], $otp, 'transfer');
+
+            json_response("otp_required", "OTP sent to your registered email address");
+        } else {
+            // OTP is provided, verify it
+            $stmt_v_otp = $db->prepare("SELECT id FROM otp_codes WHERE user_id = ? AND code = ? AND type = 'transfer' AND used_at IS NULL AND expires_at > NOW()");
+            $stmt_v_otp->bind_param("is", $user['sub'], $data['otp']);
+            $stmt_v_otp->execute();
+            $otp_record = $stmt_v_otp->get_result()->fetch_assoc();
+
+            if (!$otp_record) {
+                json_response("error", "Invalid or expired OTP");
+            }
+
+            // Mark OTP as used
+            $stmt_u_otp = $db->prepare("UPDATE otp_codes SET used_at = NOW() WHERE id = ?");
+            $stmt_u_otp->bind_param("i", $otp_record['id']);
+            $stmt_u_otp->execute();
+        }
+
+        $stmt1 = $db->prepare("SELECT id, account_number, balance, kyc_tier, max_transfer_limit FROM accounts WHERE user_id = ?");
         $stmt1->bind_param("i", $user['sub']);
         $stmt1->execute();
         $sender = $stmt1->get_result()->fetch_assoc();
@@ -566,6 +611,20 @@ case 'get_transactions':
                 }
 
                 $db->commit();
+
+                // Send Email receipt
+                $tx_data = [
+                    "amount" => $data['amount'],
+                    "sender_name" => $u['full_name'],
+                    "sender_account" => $sender['account_number'],
+                    "recipient_name" => $data['manual_account_name'],
+                    "recipient_account" => $data['receiver_account_number'],
+                    "reference" => $ref,
+                    "created_at" => date('Y-m-d H:i:s'),
+                    "narration" => !empty($data['narration']) ? $data['narration'] : "International Transfer"
+                ];
+                EmailService::sendTransferReceiptEmail($u['email'], $u['full_name'], $tx_data);
+
                 json_response("success", "Transfer completed", ["reference" => $ref]);
             } catch (Exception $e) {
                 $db->rollback();
@@ -574,7 +633,7 @@ case 'get_transactions':
 
         } else {
             // Local / Internal Transfer
-            $stmt2 = $db->prepare("SELECT id, balance FROM accounts WHERE account_number = ? AND status = 'active'");
+            $stmt2 = $db->prepare("SELECT id, balance, account_number, user_id FROM accounts WHERE account_number = ? AND status = 'active'");
             $stmt2->bind_param("s", $data['receiver_account_number']);
             $stmt2->execute();
             $receiver = $stmt2->get_result()->fetch_assoc();
@@ -582,6 +641,13 @@ case 'get_transactions':
             if (!$receiver) json_response("error", "Receiver account not found");
             if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
             if ($sender['balance'] < $data['amount']) json_response("error", "Insufficient balance");
+
+            // Fetch receiver user's name
+            $stmt_rec_u = $db->prepare("SELECT full_name FROM users WHERE id = ?");
+            $stmt_rec_u->bind_param("i", $receiver['user_id']);
+            $stmt_rec_u->execute();
+            $receiver_u = $stmt_rec_u->get_result()->fetch_assoc();
+            $receiver_name = $receiver_u['full_name'] ?? 'N/A';
 
             // Tiered Limits: Tier 1 ($0), Tier 2 ($5,000), Tier 3 ($50,000)
             $limits = [1 => 1000, 2 => 5000, 3 => 500000000];
@@ -643,6 +709,20 @@ case 'get_transactions':
                 }
 
                 $db->commit();
+
+                // Send Email receipt
+                $tx_data = [
+                    "amount" => $data['amount'],
+                    "sender_name" => $u['full_name'],
+                    "sender_account" => $sender['account_number'],
+                    "recipient_name" => $receiver_name,
+                    "recipient_account" => $data['receiver_account_number'],
+                    "reference" => $ref,
+                    "created_at" => date('Y-m-d H:i:s'),
+                    "narration" => !empty($data['narration']) ? $data['narration'] : "Local Transfer"
+                ];
+                EmailService::sendTransferReceiptEmail($u['email'], $u['full_name'], $tx_data);
+
                 json_response("success", "Transfer completed", ["reference" => $ref]);
             } catch (Exception $e) {
                 $db->rollback();
@@ -1175,20 +1255,27 @@ case 'get_transactions':
 
         $db = Database::getInstance()->getConnection();
         $res = $db->query("SELECT t.*, u.full_name as user_name, a.account_number,
-                                 cp_u.full_name as counterparty_name, cp_a.account_number as counterparty_account_number
+                                 cp_u.full_name as counterparty_name, cp_a.account_number as counterparty_account_number,
+                                 it.account_number as international_account_number
                            FROM transactions t
                            JOIN accounts a ON t.account_id = a.id
                            JOIN users u ON a.user_id = u.id
                            LEFT JOIN accounts cp_a ON t.counterparty_account_id = cp_a.id
                            LEFT JOIN users cp_u ON cp_a.user_id = cp_u.id
+                           LEFT JOIN international_transfers it ON it.transaction_id = t.id
                            ORDER BY t.created_at DESC");
         $txs = [];
         while ($row = $res->fetch_assoc()) {
             if ($row['type'] === 'debit') {
                 $row['sender_name'] = $row['user_name'];
                 $row['sender_account'] = $row['account_number'];
-                $row['recipient_name'] = $row['counterparty_name'] ?? 'System/Other';
-                $row['recipient_account'] = $row['counterparty_account_number'] ?? 'N/A';
+                if ($row['channel'] === 'external_transfer') {
+                    $row['recipient_name'] = $row['external_account_name'];
+                    $row['recipient_account'] = $row['international_account_number'] ?? 'N/A';
+                } else {
+                    $row['recipient_name'] = $row['counterparty_name'] ?? 'System/Other';
+                    $row['recipient_account'] = $row['counterparty_account_number'] ?? 'N/A';
+                }
             } else {
                 $row['sender_name'] = $row['counterparty_name'] ?? 'System/Other';
                 $row['sender_account'] = $row['counterparty_account_number'] ?? 'N/A';

@@ -20,6 +20,7 @@ const SendMoney = () => {
   const [recipient, setRecipient] = useState(null);
   const [userTier, setUserTier] = useState(null);
   const [banks, setBanks] = useState([]);
+  const [otp, setOtp] = useState('');
   
   const [formData, setFormData] = useState({
     account_number: '',
@@ -68,6 +69,7 @@ const SendMoney = () => {
     setTransferType(typeParam);
     setStep(1);
     setRecipient(null);
+    setOtp('');
     setFormData(prev => ({
         ...prev,
         account_number: '',
@@ -207,10 +209,14 @@ const SendMoney = () => {
         swift_code: formData.swift_code,
         iban: formData.iban,
         transaction_type: formData.transaction_type,
-        purpose: formData.purpose
+        purpose: formData.purpose,
+        otp: otp
       });
       if (response.data.status === 'success') {
         setStep(3);
+      } else if (response.data.status === 'otp_required') {
+        toast.success(response.data.message || 'OTP sent successfully');
+        setStep(2.5);
       } else {
         toast.error(response.data.message);
       }
@@ -529,6 +535,31 @@ const SendMoney = () => {
             <div className="flex gap-4">
               <Button variant="secondary" onClick={() => setStep(1)} className="flex-1">Back</Button>
               <Button type="submit" loading={loading} className="flex-[2] w-full">Confirm Transfer</Button>
+            </div>
+          </form>
+        )}
+
+        {step === 2.5 && (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl text-orange-800 space-y-2">
+              <p className="font-bold">Extra Security Verification</p>
+              <p className="text-sm">We have sent a 6-digit One-Time Password (OTP) to your registered email address to authorize this transfer.</p>
+            </div>
+
+            <Input
+              label="Enter 6-digit OTP Code"
+              type="text"
+              placeholder="••••••"
+              maxLength="6"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+              autoFocus
+            />
+
+            <div className="flex gap-4">
+              <Button variant="secondary" onClick={() => setStep(2)} className="flex-1">Back</Button>
+              <Button type="submit" loading={loading} disabled={otp.length !== 6} className="flex-[2] w-full">Verify & Complete</Button>
             </div>
           </form>
         )}
