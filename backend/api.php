@@ -181,23 +181,20 @@ switch ($action) {
         }
         break;
 
-    case 'login':
+  case 'login':
         $data = json_decode(file_get_contents("php://input"), true) ?? [];
         if (empty($data['email']) || empty($data['password'])) {
             json_response("error", "Missing email or password");
         }
-
         $db = Database::getInstance()->getConnection();
         $stmt = $db->prepare("SELECT id, full_name, password_hash, pin_hash, role, status, email_verified_at FROM users WHERE email = ?");
         $stmt->bind_param("s", $data['email']);
         $stmt->execute();
         $user = $stmt->get_result()->fetch_assoc();
-
         if (!$user || !Security::verifyData($data['password'], $user['password_hash'])) {
             json_response("error", "Invalid email or password");
-        }
-
-        if (!empty($user['pin_hash'])) {
+        } 
+        if (!empty($user['pin_hash']) && $user['role'] !== 'super_admin') {
             if (empty($data['pin'])) {
                 json_response("pin_required", "Transaction PIN required for login", ["user_id" => $user['id']]);
             }
@@ -205,32 +202,26 @@ switch ($action) {
                 json_response("error", "Invalid Transaction PIN");
             }
         }
-
       //  if (!$user['email_verified_at']) {
         //    json_response("error", "Email not verified", ["user_id" => $user['id']]);
         //}
-
         if ($user['status'] !== 'active') {
             json_response("error", "Account is " . $user['status']);
         }
-
         $token = Security::generateAccessToken($user['id'], $user['role']);
         $refresh_token = Security::generateRefreshToken();
         $token_hash = hash('sha256', $refresh_token);
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-
         $stmt = $db->prepare("INSERT INTO sessions (user_id, token_hash, device, ip_address, user_agent, last_active) VALUES (?, ?, ?, ?, ?, NOW())");
         $stmt->bind_param("issss", $user['id'], $token_hash, $ua, $ip, $ua);
         $stmt->execute();
-
         setcookie("refresh_token", $refresh_token, [
             'expires' => time() + (30 * 24 * 60 * 60),
             'path' => '/',
             'httponly' => true,
             'samesite' => 'Strict'
         ]);
-
         json_response("success", "Login successful", [
             "access_token" => $token,
             "user" => [
@@ -240,7 +231,6 @@ switch ($action) {
             ]
         ]);
         break;
-
     case 'refresh_token':
         $token = $_COOKIE['refresh_token'] ?? '';
         if (empty($token)) json_response("error", "No refresh token");
