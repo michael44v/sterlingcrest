@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import { ArrowRight, ShieldCheck, Zap, Globe } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Globe, ShieldAlert, Mail } from 'lucide-react';
 import GlobeBackground from '../../components/ui/Globebackground';
 
 /* ── Shared sub-components ───────────────────────────────────────────── */
@@ -59,12 +59,54 @@ const Field = ({ label, type = 'text', placeholder, value, onChange, name }) => 
   );
 };
 
+const AccountBlockedModal = ({ onClose }) => (
+  <div style={{
+    position: 'fixed', inset: 0, background: 'rgba(28,25,23,0.55)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 50, padding: 20,
+  }}>
+    <div style={{
+      background: '#fff', borderRadius: 16, padding: '22px 20px',
+      maxWidth: 380, width: '100%',
+      borderLeft: '5px solid #dc2626',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+      fontFamily: '"DM Sans", sans-serif',
+    }}>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <ShieldAlert size={22} color="#dc2626" style={{ flexShrink: 0, marginTop: 2 }} />
+        <div>
+          <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: '#1c1917' }}>
+            Account Blocked
+          </h3>
+          <p style={{ margin: 0, fontSize: 13.5, color: '#57534e', lineHeight: 1.5 }}>
+            Your Starling Crest Finance account has been blocked for security reasons.
+          </p>
+          <a href="mailto:support@starlingcrestfinance.com" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            marginTop: 14, fontSize: 13, fontWeight: 700, color: '#fe820e', textDecoration: 'none',
+          }}>
+            <Mail size={15} /> Contact Support
+          </a>
+        </div>
+      </div>
+      <button onClick={onClose} style={{
+        marginTop: 18, width: '100%', padding: '10px',
+        background: 'transparent', border: '1.5px solid #e7e5e4', borderRadius: 10,
+        fontSize: 12, fontWeight: 700, color: '#78716c', cursor: 'pointer',
+      }}>
+        Close
+      </button>
+    </div>
+  </div>
+);
+
 /* ── Login Page ──────────────────────────────────────────────────────── */
 const Login = () => {
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [pin, setPin]           = useState('');
   const [showPinField, setShowPinField] = useState(false);
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
   const [loading, setLoading]   = useState(false);
   const { login }               = useAuth();
   const navigate                = useNavigate();
@@ -78,15 +120,15 @@ const Login = () => {
     if (result.success) {
       toast.success('Login successful');
       navigate('/dashboard');
+    } else if (result.status === 'restricted') {
+      setShowBlockedModal(true);
+    } else if (result.pin_required) {
+      setShowPinField(true);
+      toast(result.message, { icon: '🔐' });
     } else {
-      if (result.pin_required) {
-        setShowPinField(true);
-        toast(result.message, { icon: '🔐' });
-      } else {
-        toast.error(result.message);
-        if (result.user_id) {
-          navigate('/verify-email', { state: { user_id: result.user_id, email } });
-        }
+      toast.error(result.message);
+      if (result.user_id) {
+        navigate('/verify-email', { state: { user_id: result.user_id, email } });
       }
     }
   };
@@ -250,6 +292,8 @@ const Login = () => {
           ))}
         </div>
       </div>
+
+      {showBlockedModal && <AccountBlockedModal onClose={() => setShowBlockedModal(false)} />}
 
       <style>{`
         @keyframes nb-spin { to { transform: rotate(360deg); } }
