@@ -491,6 +491,12 @@ case 'get_transactions':
 
         if ($transfer_type === 'external') {
             // External/International Transfer
+            if (empty($data['iban'])) {
+                json_response("error", "IBAN is required");
+            }
+            if (strlen($data['receiver_account_number']) !== 10) {
+                json_response("error", "Account number must be exactly 10 digits");
+            }
             if ($sender['balance'] < $data['amount']) {
                 json_response("error", "Insufficient balance");
             }
@@ -539,6 +545,11 @@ case 'get_transactions':
                 $stmt5->bind_param("iddssss", $sender['id'], $data['amount'], $bal_after_s, $final_narration, $ref, $data['manual_bank_name'], $data['manual_account_name']);
                 $stmt5->execute();
                 $sender_tx_id = $db->insert_id;
+
+                // Insert into specialized international transfers table
+                $stmt_it = $db->prepare("INSERT INTO international_transfers (transaction_id, user_id, bank_name, country, swift_code, account_name, account_number, iban, amount, narration, transaction_type, purpose, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')");
+                $stmt_it->bind_param("iissssssdsss", $sender_tx_id, $user['sub'], $data['manual_bank_name'], $data['country'], $data['swift_code'], $data['manual_account_name'], $data['receiver_account_number'], $data['iban'], $data['amount'], $data['narration'], $tx_type_label, $purpose);
+                $stmt_it->execute();
 
                 // Sender debit notification
                 $notif_title = "Debit Alert: $" . number_format($data['amount'], 2);
@@ -1270,12 +1281,12 @@ case 'get_transactions':
         if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
 
         $db = Database::getInstance()->getConnection();
-        $res = $db->query("SELECT t.*, u.full_name as sender_name, a.account_number as sender_account
-                           FROM transactions t
-                           JOIN accounts a ON t.account_id = a.id
-                           JOIN users u ON a.user_id = u.id
-                           WHERE t.channel = 'external_transfer'
-                           ORDER BY t.created_at DESC");
+        $res = $db->query("SELECT it.*, u.full_name as sender_name, a.account_number as sender_account, t.reference
+                           FROM international_transfers it
+                           JOIN users u ON it.user_id = u.id
+                           JOIN accounts a ON a.user_id = u.id
+                           LEFT JOIN transactions t ON it.transaction_id = t.id
+                           ORDER BY it.created_at DESC");
         $transfers = [];
         while ($row = $res->fetch_assoc()) {
             $transfers[] = $row;
@@ -1292,10 +1303,10 @@ case 'get_transactions':
             json_response("error", "Missing transaction ID or status");
         }
 
-        $transaction_id = (int)$data['transaction_id'];
+        $id = (int)$data['transaction_id'];
         $new_status = $data['status'];
 
-        $valid_statuses = ['completed', 'failed', 'reversed'];
+        $valid_statuses = ['completed', 'failed', 'reversed', 'pending'];
         if (!in_array($new_status, $valid_statuses)) {
             json_response("error", "Invalid status");
         }
@@ -1303,19 +1314,43 @@ case 'get_transactions':
         $db = Database::getInstance()->getConnection();
         $db->begin_transaction();
         try {
-            // Get transaction details and check status
-            $stmt = $db->prepare("SELECT account_id, status, amount, narration FROM transactions WHERE id = ?");
-            $stmt->bind_param("i", $transaction_id);
-            $stmt->execute();
-            $tx = $stmt->get_result()->fetch_assoc();
+            // Find records on both tables using the given ID (which could be the specialized ID or transaction_id)
+            $stmt_find = $db->prepare("SELECT id, transaction_id, status, amount, user_id FROM international_transfers WHERE id = ? OR transaction_id = ?");
+            $stmt_find->bind_param("ii", $id, $id);
+            $stmt_find->execute();
+            $it = $stmt_find->get_result()->fetch_assoc();
 
-            if (!$tx) {
-                throw new Exception("Transaction not found");
+            if (!$it) {
+                // If not found in specialized table, fallback to transactions
+                $stmt_find_tx = $db->prepare("SELECT id, status, amount, account_id FROM transactions WHERE id = ?");
+                $stmt_find_tx->bind_param("i", $id);
+                $stmt_find_tx->execute();
+                $tx = $stmt_find_tx->get_result()->fetch_assoc();
+                if (!$tx) {
+                    throw new Exception("Transaction not found");
+                }
+                $current_status = $tx['status'];
+                $amount = (float)$tx['amount'];
+                $transaction_id = $tx['id'];
+
+                $stmt_acc_info = $db->prepare("SELECT id, user_id FROM accounts WHERE id = ?");
+                $stmt_acc_info->bind_param("i", $tx['account_id']);
+                $stmt_acc_info->execute();
+                $acc_info = $stmt_acc_info->get_result()->fetch_assoc();
+                $account_id = $acc_info['id'];
+                $user_id = $acc_info['user_id'];
+            } else {
+                $current_status = $it['status'];
+                $amount = (float)$it['amount'];
+                $transaction_id = $it['transaction_id'];
+
+                $stmt_acc_info = $db->prepare("SELECT id FROM accounts WHERE user_id = ?");
+                $stmt_acc_info->bind_param("i", $it['user_id']);
+                $stmt_acc_info->execute();
+                $acc_info = $stmt_acc_info->get_result()->fetch_assoc();
+                $account_id = $acc_info['id'];
+                $user_id = $it['user_id'];
             }
-
-            $current_status = $tx['status'];
-            $amount = (float)$tx['amount'];
-            $account_id = (int)$tx['account_id'];
 
             // Refund logic: if moving from completed/pending to failed/reversed
             if (($current_status === 'completed' || $current_status === 'pending') && ($new_status === 'failed' || $new_status === 'reversed')) {
@@ -1325,22 +1360,145 @@ case 'get_transactions':
                 $stmt_refund->execute();
 
                 // Insert a notification for the refund
-                $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'reversal', 'Refund Issued', ?)");
-                $notif_msg = "Your international transfer of £" . number_format($amount, 2) . " has been reversed/refunded back to your account.";
-                $stmt_notif->bind_param("is", $account_id, $notif_msg);
+                $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'reversal', 'Refund Issued', ?)");
+                $notif_msg = "Your international transfer of $" . number_format($amount, 2) . " has been reversed/refunded back to your account.";
+                $stmt_notif->bind_param("is", $user_id, $notif_msg);
                 $stmt_notif->execute();
             }
 
-            // Update status
+            // Update transactions table status
             $stmt_update = $db->prepare("UPDATE transactions SET status = ? WHERE id = ?");
             $stmt_update->bind_param("si", $new_status, $transaction_id);
             $stmt_update->execute();
+
+            // If specialized record exists, update its status too
+            if ($it) {
+                $stmt_update_it = $db->prepare("UPDATE international_transfers SET status = ? WHERE id = ?");
+                $stmt_update_it->bind_param("si", $new_status, $it['id']);
+                $stmt_update_it->execute();
+            }
 
             $db->commit();
             json_response("success", "Transfer status updated successfully" . (($new_status === 'failed' || $new_status === 'reversed') ? " and funds refunded" : ""));
         } catch (Exception $e) {
             $db->rollback();
             json_response("error", "Failed to update international transfer status: " . $e->getMessage());
+        }
+        break;
+
+    case 'admin_edit_international_transfer':
+        $user = require_auth();
+        if ($user['role'] !== 'admin' && $user['role'] !== 'super_admin') json_response("error", "Forbidden");
+
+        $data = json_decode(file_get_contents("php://input"), true) ?? [];
+        if (empty($data['id'])) {
+            json_response("error", "International transfer ID is required");
+        }
+
+        $id = (int)$data['id'];
+        $db = Database::getInstance()->getConnection();
+        $db->begin_transaction();
+        try {
+            // Fetch the international transfer record
+            $stmt = $db->prepare("SELECT * FROM international_transfers WHERE id = ?");
+            $stmt->bind_param("i", $id);
+            $stmt->execute();
+            $it = $stmt->get_result()->fetch_assoc();
+
+            if (!$it) {
+                throw new Exception("International transfer not found");
+            }
+
+            // Fetch the main transaction record
+            $stmt_tx = $db->prepare("SELECT * FROM transactions WHERE id = ?");
+            $stmt_tx->bind_param("i", $it['transaction_id']);
+            $stmt_tx->execute();
+            $tx = $stmt_tx->get_result()->fetch_assoc();
+
+            if (!$tx) {
+                throw new Exception("Associated transaction not found");
+            }
+
+            // Fetch the user's account
+            $stmt_acc = $db->prepare("SELECT * FROM accounts WHERE id = ?");
+            $stmt_acc->bind_param("i", $tx['account_id']);
+            $stmt_acc->execute();
+            $acc = $stmt_acc->get_result()->fetch_assoc();
+
+            if (!$acc) {
+                throw new Exception("Sender account not found");
+            }
+
+            $old_amount = (float)$it['amount'];
+            $new_amount = isset($data['amount']) ? (float)$data['amount'] : $old_amount;
+            $old_status = $it['status'];
+            $new_status = isset($data['status']) ? $data['status'] : $old_status;
+
+            $valid_statuses = ['pending', 'completed', 'failed', 'reversed'];
+            if (!in_array($new_status, $valid_statuses)) {
+                throw new Exception("Invalid status");
+            }
+
+            $balance_adjustment = 0.00;
+
+            // Determine if refund or debit or adjustment is needed
+            $old_is_active = ($old_status === 'completed' || $old_status === 'pending');
+            $new_is_active = ($new_status === 'completed' || $new_status === 'pending');
+
+            if ($old_is_active && !$new_is_active) {
+                // Refunding the old amount
+                $balance_adjustment = $old_amount;
+
+                // Insert notification for refund
+                $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'reversal', 'Refund Issued', ?)");
+                $notif_msg = "Your international transfer of $" . number_format($old_amount, 2) . " has been reversed/refunded back to your account.";
+                $stmt_notif->bind_param("is", $acc['user_id'], $notif_msg);
+                $stmt_notif->execute();
+            } elseif (!$old_is_active && $new_is_active) {
+                // Debiting the new amount
+                $balance_adjustment = -$new_amount;
+            } elseif ($old_is_active && $new_is_active) {
+                // Both are active debits: adjust by the difference
+                $diff = $new_amount - $old_amount;
+                $balance_adjustment = -$diff;
+            }
+
+            // Check if the user has enough balance if we are debiting or adjusting downwards
+            if ($balance_adjustment < 0 && ($acc['balance'] + $balance_adjustment) < 0) {
+                throw new Exception("Insufficient user balance for this adjustment (Requires additional " . abs($balance_adjustment) . ")");
+            }
+
+            // Update user's account balance
+            if ($balance_adjustment != 0) {
+                $stmt_up_acc = $db->prepare("UPDATE accounts SET balance = balance + ?, ledger_balance = ledger_balance + ? WHERE id = ?");
+                $stmt_up_acc->bind_param("ddi", $balance_adjustment, $balance_adjustment, $acc['id']);
+                $stmt_up_acc->execute();
+            }
+
+            // Update transactions table record
+            $new_balance_after = $tx['balance_after'] + $balance_adjustment;
+            // If the transfer narration is constructed, update it
+            $user_narr = !empty($data['narration']) ? $data['narration'] : "International Transfer";
+            $country = !empty($data['country']) ? $data['country'] : $it['country'];
+            $swift_code = !empty($data['swift_code']) ? $data['swift_code'] : $it['swift_code'];
+            $tx_type_label = !empty($data['transaction_type']) ? $data['transaction_type'] : $it['transaction_type'];
+            $purpose = !empty($data['purpose']) ? $data['purpose'] : $it['purpose'];
+            $final_narration = "$user_narr (Country: $country, SWIFT: $swift_code, Type: $tx_type_label, Purpose: $purpose)";
+
+            $stmt_up_tx = $db->prepare("UPDATE transactions SET amount = ?, status = ?, narration = ?, balance_after = ?, external_bank_name = ?, external_account_name = ? WHERE id = ?");
+            $stmt_up_tx->bind_param("dssdssi", $new_amount, $new_status, $final_narration, $new_balance_after, $data['bank_name'], $data['account_name'], $it['transaction_id']);
+            $stmt_up_tx->execute();
+
+            // Update international_transfers table record
+            $stmt_up_it = $db->prepare("UPDATE international_transfers SET bank_name = ?, country = ?, swift_code = ?, account_name = ?, account_number = ?, iban = ?, amount = ?, narration = ?, transaction_type = ?, purpose = ?, status = ? WHERE id = ?");
+            $stmt_up_it->bind_param("ssssssdssssi", $data['bank_name'], $data['country'], $data['swift_code'], $data['account_name'], $data['account_number'], $data['iban'], $new_amount, $data['narration'], $tx_type_label, $purpose, $new_status, $id);
+            $stmt_up_it->execute();
+
+            $db->commit();
+            json_response("success", "International transfer edited and user balance synchronized successfully");
+        } catch (Exception $e) {
+            $db->rollback();
+            json_response("error", "Failed to edit international transfer: " . $e->getMessage());
         }
         break;
 
@@ -1388,6 +1546,11 @@ case 'get_transactions':
             $stmt_update_tx = $db->prepare("UPDATE transactions SET amount = ?, narration = ?, balance_after = ? WHERE id = ?");
             $stmt_update_tx->bind_param("dsdi", $new_amount, $new_narration, $new_balance_after, $transaction_id);
             $stmt_update_tx->execute();
+
+            // Sync with international_transfers if exists
+            $stmt_sync_it = $db->prepare("UPDATE international_transfers SET amount = ?, narration = ? WHERE transaction_id = ?");
+            $stmt_sync_it->bind_param("dsi", $new_amount, $new_narration, $transaction_id);
+            $stmt_sync_it->execute();
 
             // Update user account balance
             $stmt_update_acc = $db->prepare("UPDATE accounts SET balance = balance + ?, ledger_balance = ledger_balance + ? WHERE id = ?");

@@ -27,7 +27,11 @@ instance.interceptors.response.use(
     if (error.response?.data?.message?.includes('Token expired')) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
-      window.location.href = '/login?expired=true';
+      if (window.location.pathname.startsWith('/admin')) {
+        window.location.href = '/admin?expired=true';
+      } else {
+        window.location.href = '/login?expired=true';
+      }
     }
     return Promise.reject(error);
   }

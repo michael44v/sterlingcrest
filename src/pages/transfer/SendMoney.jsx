@@ -32,6 +32,7 @@ const SendMoney = () => {
     manual_account_name: user?.full_name || '',
     country: '',
     swift_code: '',
+    iban: '',
     transaction_type: 'WIRE-TRANSFER',
     purpose: ''
   });
@@ -79,6 +80,7 @@ const SendMoney = () => {
         manual_account_name: user?.full_name || '',
         country: '',
         swift_code: '',
+        iban: '',
         transaction_type: 'WIRE-TRANSFER',
         purpose: ''
     }));
@@ -158,12 +160,20 @@ const SendMoney = () => {
           toast.error('Please enter SWIFT Code');
           return;
         }
+        if (!formData.iban) {
+          toast.error('Please enter IBAN');
+          return;
+        }
         if (!formData.manual_account_name) {
           toast.error('Please enter Account Name');
           return;
         }
         if (!formData.account_number) {
           toast.error('Please enter Account Number');
+          return;
+        }
+        if (formData.account_number.length !== 10) {
+          toast.error('International Account Number must be exactly 10 digits');
           return;
         }
         if (!formData.amount || parseFloat(formData.amount) <= 0) {
@@ -195,6 +205,7 @@ const SendMoney = () => {
         manual_account_name: formData.manual_account_name,
         country: formData.country,
         swift_code: formData.swift_code,
+        iban: formData.iban,
         transaction_type: formData.transaction_type,
         purpose: formData.purpose
       });
@@ -316,6 +327,14 @@ const SendMoney = () => {
                         placeholder="e.g. SCBLGB2L"
                         value={formData.swift_code}
                         onChange={(e) => setFormData({...formData, swift_code: e.target.value})}
+                        required
+                    />
+
+                    <Input
+                        label="IBAN"
+                        placeholder="e.g. GB98 WEST 1234 5678 9012"
+                        value={formData.iban}
+                        onChange={(e) => setFormData({...formData, iban: e.target.value})}
                         required
                     />
 
@@ -474,6 +493,10 @@ const SendMoney = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">SWIFT / BIC Code</span>
                     <span className="font-mono font-bold text-chase-navy uppercase">{formData.swift_code}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">IBAN</span>
+                    <span className="font-mono font-bold text-chase-navy uppercase">{formData.iban}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Transaction Type</span>
