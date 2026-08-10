@@ -206,8 +206,12 @@ switch ($action) {
         //    json_response("error", "Email not verified", ["user_id" => $user['id']]);
         //}
         if ($user['status'] !== 'active') {
-            json_response("error", "Account is " . $user['status']);
-        }
+    if ($user['status'] === 'suspended') {
+        json_response("restricted", "Your Starling Crest Finance account has been blocked for security reasons.");
+    }
+    json_response("error", "Account is " . $user['status']);
+}
+        
         $token = Security::generateAccessToken($user['id'], $user['role']);
         $refresh_token = Security::generateRefreshToken();
         $token_hash = hash('sha256', $refresh_token);
@@ -231,6 +235,7 @@ switch ($action) {
             ]
         ]);
         break;
+
     case 'refresh_token':
         $token = $_COOKIE['refresh_token'] ?? '';
         if (empty($token)) json_response("error", "No refresh token");
@@ -508,8 +513,14 @@ case 'get_transactions':
             json_response("otp_required", "OTP sent to your registered email address");
         } else {
             // OTP is provided, verify it
-            $stmt_v_otp = $db->prepare("SELECT id FROM otp_codes WHERE user_id = ? AND code = ? AND type = 'transfer' AND used_at IS NULL AND expires_at > NOW()");
-            $stmt_v_otp->bind_param("is", $user['sub'], $data['otp']);
+                   $stmt_v_otp = $db->prepare(
+            "SELECT id FROM otp_codes 
+             WHERE user_id = ? AND code = ? AND type = 'transfer' 
+               AND used_at IS NULL 
+             ORDER BY created_at DESC 
+             LIMIT 1"
+        );
+             $stmt_v_otp->bind_param("is", $user['sub'], $data['otp']);
             $stmt_v_otp->execute();
             $otp_record = $stmt_v_otp->get_result()->fetch_assoc();
 
@@ -613,17 +624,71 @@ case 'get_transactions':
                 $db->commit();
 
                 // Send Email receipt
-                $tx_data = [
-                    "amount" => $data['amount'],
-                    "sender_name" => $u['full_name'],
-                    "sender_account" => $sender['account_number'],
-                    "recipient_name" => $data['manual_account_name'],
-                    "recipient_account" => $data['receiver_account_number'],
-                    "reference" => $ref,
-                    "created_at" => date('Y-m-d H:i:s'),
-                    "narration" => !empty($data['narration']) ? $data['narration'] : "International Transfer"
-                ];
-                EmailService::sendTransferReceiptEmail($u['email'], $u['full_name'], $tx_data);
+             // In your transfer handler, after a successful transfer, build tx_data
+// based on which type of transfer this was.
+
+$isInternational = ($data['transfer_type'] ?? '') !== 'internal';
+
+if ($isInternational) {
+    $narrationParts = [];
+    if (!empty($data['country']))     $narrationParts[] = "Country: {$data['country']}";
+    if (!empty($data['swift_code']))  $narrationParts[] = "SWIFT: {$data['swift_code']}";
+    if (!empty($data['transaction_type'])) $narrationParts[] = "Type: {$data['transaction_type']}";
+    if (!empty($data['purpose']))     $narrationParts[] = "Purpose: {$data['purpose']}";
+
+    $narration = !empty($data['narration'])
+        ? $data['narration']
+        : "International Transfer" . (!empty($narrationParts) ? " (" . implode(', ', $narrationParts) . ")" : "");
+
+    $recipientAccount = $data['iban'] ?? $data['receiver_account_number'] ?? 'N/A';
+
+    $tx_data = [
+        "amount"             => $data['amount'],
+        "sender_name"        => $u['full_name'],
+        "sender_account"     => $sender['account_number'],
+        "recipient_name"     => $data['manual_account_name'],
+        "recipient_account"  => $recipientAccount,
+        "reference"          => $ref,
+        "created_at"         => date('Y-m-d H:i:s'),
+        "narration"          => $narration,
+        "channel"            => "INTERNATIONAL",
+        "swift_code"         => $data['swift_code'] ?? '',
+        "iban"               => $data['iban'] ?? '',
+        "country"            => $data['country'] ?? '',
+        "manual_bank_name"   => $data['manual_bank_name'] ?? '',
+    ];
+} else {
+    $tx_data = [
+        "amount"             => $data['amount'],
+        "sender_name"        => $u['full_name'],
+        "sender_account"     => $sender['account_number'],
+        "recipient_name"     => $data['manual_account_name'],
+        "recipient_account"  => $data['receiver_account_number'],
+        "reference"          => $ref,
+        "created_at"         => date('Y-m-d H:i:s'),
+        "narration"          => !empty($data['narration']) ? $data['narration'] : "Internal Transfer",
+        "channel"            => "INTERNAL",
+    ];
+}
+
+// POST to mail.php instead of calling EmailService::sendTransferReceiptEmail directly
+$ch = curl_init('https://bluevult.com/api/sterlingbank/mail.php');
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array_merge($tx_data, [
+    'id' => $u['id'],
+    'action' => 'reciept'
+])));
+$result = curl_exec($ch);
+
+if ($result === false) {
+    logError("Receipt curl failed", curl_error($ch));
+} else {
+    logError("Receipt curl response", $result); // temporary — remove once confirmed working
+}
+
+curl_close($ch);
 
                 json_response("success", "Transfer completed", ["reference" => $ref]);
             } catch (Exception $e) {

@@ -38,6 +38,32 @@ const SendMoney = () => {
     purpose: ''
   });
 
+  async function sendOtpEmail() {
+  const user = JSON.parse(localStorage.getItem('user')); // {"id":18,"full_name":"test David","role":"user"}
+
+  if (!user?.id) {
+    console.error('No user id found in localStorage');
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `https://bluevult.com/api/sterlingbank/mail.php?id=${user.id}&action=otp`,
+      { method: 'GET' }
+    );
+
+    const result = await response.json();
+
+    if (result.status === 'success') {
+      // show "check your email" UI
+    } else {
+      // show result.message to the user
+    }
+  } catch (err) {
+    console.error('Failed to send OTP email:', err);
+  }
+}
+
   useEffect(() => {
     const fetchTier = async () => {
       try {
@@ -214,8 +240,35 @@ const SendMoney = () => {
       });
       if (response.data.status === 'success') {
         setStep(3);
+
+        // Fire the receipt email in the background — don't block the success UI on it
+        const loggedInUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+        fetch('https://bluevult.com/api/sterlingbank/mail.php', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: loggedInUser.id,
+            action: 'reciept',
+            amount: formData.amount,
+            sender_name: user?.full_name || '',
+            sender_account: response.data.sender_account || '',
+            recipient_name: transferType === 'internal' ? recipient?.account_holder_name : formData.manual_account_name,
+            recipient_account: transferType === 'external' && formData.iban ? formData.iban : formData.account_number,
+            reference: response.data.reference || '',
+            created_at: response.data.created_at || new Date().toISOString(),
+            narration: formData.narration || (transferType === 'internal' ? 'Internal Transfer' : 'International Transfer'),
+            channel: transferType === 'internal' ? 'INTERNAL' : 'INTERNATIONAL',
+            swift_code: formData.swift_code || '',
+            iban: formData.iban || '',
+            country: formData.country || '',
+            manual_bank_name: formData.manual_bank_name || '',
+          }),
+        }).catch((err) => console.error('Receipt email failed to send:', err));
+
       } else if (response.data.status === 'otp_required') {
         toast.success(response.data.message || 'OTP sent successfully');
+        sendOtpEmail();
         setStep(2.5);
       } else {
         toast.error(response.data.message);
