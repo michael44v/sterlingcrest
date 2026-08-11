@@ -200,10 +200,10 @@ const SendMoney = () => {
           toast.error('Please enter Account Number');
           return;
         }
-        if (formData.account_number.length !== 10) {
+        /**if (formData.account_number.length !== 10) {
           toast.error('International Account Number must be exactly 10 digits');
           return;
-        }
+        }**/
         if (!formData.amount || parseFloat(formData.amount) <= 0) {
           toast.error('Please enter a valid amount');
           return;
@@ -418,12 +418,12 @@ const SendMoney = () => {
             <div className="relative">
               <Input
                 label={transferType === 'internal' ? "Local Account Number" : "International Account Number"}
-                placeholder="10-digit account number"
+                placeholder="account number"
                 value={formData.account_number}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 100);
                   setFormData({ ...formData, account_number: val });
-                  if (val.length === 10) handleResolve(val);
+                  if (val.length === 100) handleResolve(val);
                   else if (recipient) setRecipient(null);
                 }}
                 required
