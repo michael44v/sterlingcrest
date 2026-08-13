@@ -586,8 +586,8 @@ case 'get_transactions':
             }
         }
 
-        // Calculate sender's debit amount in USD (stored database value)
-        $debit_usd = $input_amount / ($exchange_rates[$sender_currency] ?: 1.0);
+        // Calculate sender's debit amount (no currency conversion, direct 1:1)
+        $debit_usd = $input_amount;
 
         if ($transfer_type === 'external') {
             // External/International Transfer
@@ -609,12 +609,12 @@ case 'get_transactions':
                 json_response("error", "Transfer amount exceeds your current limit of $limit $sender_currency.");
             }
 
-            // Today's total sent (including internal and external transfers) in USD
+            // Today's total sent (including internal and external transfers)
             $stmt_limit = $db->prepare("SELECT SUM(amount) FROM transactions WHERE account_id = ? AND type = 'debit' AND channel IN ('internal_transfer', 'external_transfer') AND DATE(created_at) = CURDATE()");
             $stmt_limit->bind_param("i", $sender['id']);
             $stmt_limit->execute();
             $today_sent_usd = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
-            $today_sent_preferred = $today_sent_usd * ($exchange_rates[$sender_currency] ?: 1.0);
+            $today_sent_preferred = $today_sent_usd; // no currency conversion, direct 1:1
 
             if (($today_sent_preferred + $input_amount) > $limit) {
                 json_response("error", "Daily transfer limit exceeded. Remaining: " . ($limit - $today_sent_preferred) . " " . $sender_currency);
@@ -740,7 +740,7 @@ case 'get_transactions':
             if ($sender['balance'] < $debit_usd) json_response("error", "Insufficient balance");
 
             $receiver_currency = !empty($receiver['currency']) ? $receiver['currency'] : 'USD';
-            $credit_usd = $input_amount / ($exchange_rates[$receiver_currency] ?: 1.0);
+            $credit_usd = $input_amount; // no currency conversion, direct 1:1
 
             // Fetch receiver user's name
             $stmt_rec_u = $db->prepare("SELECT full_name FROM users WHERE id = ?");
@@ -759,12 +759,12 @@ case 'get_transactions':
                 json_response("error", "Transfer amount exceeds your current limit of $limit $sender_currency.");
             }
 
-            // Today's total sent (including internal and external transfers) in USD
+            // Today's total sent (including internal and external transfers)
             $stmt_limit = $db->prepare("SELECT SUM(amount) FROM transactions WHERE account_id = ? AND type = 'debit' AND channel IN ('internal_transfer', 'external_transfer') AND DATE(created_at) = CURDATE()");
             $stmt_limit->bind_param("i", $sender['id']);
             $stmt_limit->execute();
             $today_sent_usd = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
-            $today_sent_preferred = $today_sent_usd * ($exchange_rates[$sender_currency] ?: 1.0);
+            $today_sent_preferred = $today_sent_usd; // no currency conversion, direct 1:1
 
             if (($today_sent_preferred + $input_amount) > $limit) {
                 json_response("error", "Daily transfer limit exceeded. Remaining: " . ($limit - $today_sent_preferred) . " " . $sender_currency);

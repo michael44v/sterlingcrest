@@ -72,7 +72,7 @@ export const getSymbol = (currency) => {
 
 export const formatUSD = (amount, overrideCurrency) => {
   const currencyCode = overrideCurrency || localStorage.getItem('user_currency') || 'USD';
-  const rate = exchangeRates[currencyCode] || 1.0;
+  const rate = 1.0;
   const converted = Number(amount) * rate;
 
   return new Intl.NumberFormat(getLocale(currencyCode), {
@@ -83,7 +83,7 @@ export const formatUSD = (amount, overrideCurrency) => {
 
 export const formatUSD_S = (amount, overrideCurrency) => {
   const currencyCode = overrideCurrency || localStorage.getItem('user_currency') || 'USD';
-  const rate = exchangeRates[currencyCode] || 1.0;
+  const rate = 1.0;
   const value = Number(amount) * rate;
 
   // Handle Millions
