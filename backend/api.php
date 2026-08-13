@@ -70,19 +70,30 @@ function require_auth() {
         $authHeader = $_SERVER['HTTP_AUTHORIZATION'];
     } elseif (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
         $authHeader = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'];
+    } elseif (isset($_SERVER['HTTP_X_AUTHORIZATION'])) {
+        $authHeader = $_SERVER['HTTP_X_AUTHORIZATION'];
+    } elseif (isset($_SERVER['HTTP_X_ACCESS_TOKEN'])) {
+        $authHeader = 'Bearer ' . $_SERVER['HTTP_X_ACCESS_TOKEN'];
     } else {
         $headers = getallheaders();
         if ($headers) {
             foreach ($headers as $key => $value) {
-                if (strtolower($key) === 'authorization') {
+                $lowered = strtolower($key);
+                if ($lowered === 'authorization') {
                     $authHeader = $value;
+                    break;
+                } elseif ($lowered === 'x-authorization') {
+                    $authHeader = $value;
+                    break;
+                } elseif ($lowered === 'x-access-token') {
+                    $authHeader = 'Bearer ' . $value;
                     break;
                 }
             }
         }
     }
 
-    if (preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
+    if (preg_match('/Bearer\s(\S+)/i', $authHeader, $matches)) {
         $token = $matches[1];
         try {
             $decoded = Security::validateAccessToken($token);
@@ -518,14 +529,14 @@ case 'get_transactions':
             json_response("otp_required", "OTP sent to your registered email address");
         } else {
             // OTP is provided, verify it
-                   $stmt_v_otp = $db->prepare(
-            "SELECT id FROM otp_codes 
-             WHERE user_id = ? AND code = ? AND type = 'transfer' 
-               AND used_at IS NULL 
-             ORDER BY created_at DESC 
-             LIMIT 1"
-        );
-             $stmt_v_otp->bind_param("is", $user['sub'], $data['otp']);
+            $stmt_v_otp = $db->prepare(
+                "SELECT id FROM otp_codes
+                 WHERE user_id = ? AND code = ? AND type = 'transfer'
+                   AND used_at IS NULL
+                 ORDER BY created_at DESC
+                 LIMIT 1"
+            );
+            $stmt_v_otp->bind_param("is", $user['sub'], $data['otp']);
             $stmt_v_otp->execute();
             $otp_record = $stmt_v_otp->get_result()->fetch_assoc();
 
@@ -539,7 +550,7 @@ case 'get_transactions':
             $stmt_u_otp->execute();
         }
 
-        $stmt1 = $db->prepare("SELECT id, account_number, balance, kyc_tier, max_transfer_limit FROM accounts WHERE user_id = ?");
+        $stmt1 = $db->prepare("SELECT id, account_number, balance, kyc_tier, max_transfer_limit, currency FROM accounts WHERE user_id = ?");
         $stmt1->bind_param("i", $user['sub']);
         $stmt1->execute();
         $sender = $stmt1->get_result()->fetch_assoc();
@@ -548,15 +559,43 @@ case 'get_transactions':
             json_response("error", "Sender account not found");
         }
 
+        $sender_currency = !empty($sender['currency']) ? $sender['currency'] : 'USD';
         $transfer_type = $data['transfer_type'] ?? 'internal';
+        $input_amount = (float)$data['amount'];
+
+        // Define Exchange Rates (same as formatCurrency.js)
+        $exchange_rates = [
+            'USD' => 1.0,
+            'EUR' => 0.92,
+            'GBP' => 0.78,
+            'CAD' => 1.36,
+            'AUD' => 1.51,
+            'JPY' => 156.0,
+            'INR' => 83.3,
+            'CNY' => 7.24,
+            'CHF' => 0.90,
+            'SGD' => 1.35
+        ];
+        // Try to fetch latest rates
+        $ctx = stream_context_create(['http' => ['timeout' => 2.0]]);
+        $rates_json = @file_get_contents('https://open.er-api.com/v6/latest/USD', false, $ctx);
+        if ($rates_json) {
+            $rates_data = json_decode($rates_json, true);
+            if ($rates_data && isset($rates_data['rates'])) {
+                $exchange_rates = array_merge($exchange_rates, $rates_data['rates']);
+            }
+        }
+
+        // Calculate sender's debit amount in USD (stored database value)
+        $debit_usd = $input_amount / ($exchange_rates[$sender_currency] ?: 1.0);
 
         if ($transfer_type === 'external') {
             // External/International Transfer
             if (empty($data['iban'])) {
                 json_response("error", "IBAN is required");
             }
-           
-            if ($sender['balance'] < $data['amount']) {
+
+            if ($sender['balance'] < $debit_usd) {
                 json_response("error", "Insufficient balance");
             }
 
@@ -566,30 +605,31 @@ case 'get_transactions':
                 ? (float)$sender['max_transfer_limit']
                 : ($limits[$sender['kyc_tier']] ?? 0);
 
-            if ($data['amount'] > $limit) {
-                json_response("error", "Transfer amount exceeds your current limit of $$limit.");
+            if ($input_amount > $limit) {
+                json_response("error", "Transfer amount exceeds your current limit of $limit $sender_currency.");
             }
 
-            // Today's total sent (including internal and external transfers)
+            // Today's total sent (including internal and external transfers) in USD
             $stmt_limit = $db->prepare("SELECT SUM(amount) FROM transactions WHERE account_id = ? AND type = 'debit' AND channel IN ('internal_transfer', 'external_transfer') AND DATE(created_at) = CURDATE()");
             $stmt_limit->bind_param("i", $sender['id']);
             $stmt_limit->execute();
-            $today_sent = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
+            $today_sent_usd = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
+            $today_sent_preferred = $today_sent_usd * ($exchange_rates[$sender_currency] ?: 1.0);
 
-            if (($today_sent + $data['amount']) > $limit) {
-                json_response("error", "Daily transfer limit exceeded. Remaining: $" . ($limit - $today_sent));
+            if (($today_sent_preferred + $input_amount) > $limit) {
+                json_response("error", "Daily transfer limit exceeded. Remaining: " . ($limit - $today_sent_preferred) . " " . $sender_currency);
             }
 
             $db->begin_transaction();
             try {
                 $ref = "NBK" . time() . strtoupper(bin2hex(random_bytes(3)));
 
-                // Update sender balance
-                $stmt3 = $db->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
-                $stmt3->bind_param("di", $data['amount'], $sender['id']);
+                // Update sender balance (using USD)
+                $stmt3 = $db->prepare("UPDATE accounts SET balance = balance - ?, ledger_balance = ledger_balance - ? WHERE id = ?");
+                $stmt3->bind_param("ddi", $debit_usd, $debit_usd, $sender['id']);
                 $stmt3->execute();
 
-                $bal_after_s = $sender['balance'] - $data['amount'];
+                $bal_after_s = $sender['balance'] - $debit_usd;
 
                 // Construct rich narration to save extra metadata securely
                 $user_narr = !empty($data['narration']) ? $data['narration'] : "International Transfer";
@@ -601,24 +641,24 @@ case 'get_transactions':
 
                 // Insert debit transaction under external_transfer channel
                 $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, external_bank_name, external_account_name, status) VALUES (?, 'debit', 'external_transfer', ?, ?, ?, ?, ?, ?, 'completed')");
-                $stmt5->bind_param("iddssss", $sender['id'], $data['amount'], $bal_after_s, $final_narration, $ref, $data['manual_bank_name'], $data['manual_account_name']);
+                $stmt5->bind_param("iddssss", $sender['id'], $debit_usd, $bal_after_s, $final_narration, $ref, $data['manual_bank_name'], $data['manual_account_name']);
                 $stmt5->execute();
                 $sender_tx_id = $db->insert_id;
 
                 // Insert into specialized international transfers table
                 $stmt_it = $db->prepare("INSERT INTO international_transfers (transaction_id, user_id, bank_name, country, swift_code, account_name, account_number, iban, amount, narration, transaction_type, purpose, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed')");
-                $stmt_it->bind_param("iissssssdsss", $sender_tx_id, $user['sub'], $data['manual_bank_name'], $data['country'], $data['swift_code'], $data['manual_account_name'], $data['receiver_account_number'], $data['iban'], $data['amount'], $data['narration'], $tx_type_label, $purpose);
+                $stmt_it->bind_param("iissssssdsss", $sender_tx_id, $user['sub'], $data['manual_bank_name'], $data['country'], $data['swift_code'], $data['manual_account_name'], $data['receiver_account_number'], $data['iban'], $debit_usd, $data['narration'], $tx_type_label, $purpose);
                 $stmt_it->execute();
 
-                // Sender debit notification
-                $notif_title = "Debit Alert: $" . number_format($data['amount'], 2);
-                $notif_msg = "Your international transfer of $" . number_format($data['amount'], 2) . " to " . $data['manual_account_name'] . " has been completed successfully.";
+                // Sender debit notification in preferred currency
+                $notif_title = "Debit Alert: " . $sender_currency . " " . number_format($input_amount, 2);
+                $notif_msg = "Your international transfer of " . $sender_currency . " " . number_format($input_amount, 2) . " to " . $data['manual_account_name'] . " has been completed successfully.";
                 $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES (?, 'debit', ?, ?)");
                 $stmt_notif->bind_param("iss", $user['sub'], $notif_title, $notif_msg);
                 $stmt_notif->execute();
 
-                if ($data['amount'] > 1000000) {
-                    $reason = "High value transfer: $" . number_format($data['amount'], 2);
+                if ($debit_usd > 1000000) {
+                    $reason = "High value transfer: " . $sender_currency . " " . number_format($input_amount, 2);
                     $stmt_aml = $db->prepare("INSERT INTO aml_flags (transaction_id, reason) VALUES (?, ?)");
                     $stmt_aml->bind_param("is", $sender_tx_id, $reason);
                     $stmt_aml->execute();
@@ -627,71 +667,60 @@ case 'get_transactions':
                 $db->commit();
 
                 // Send Email receipt
-             // In your transfer handler, after a successful transfer, build tx_data
-// based on which type of transfer this was.
+                $isInternational = ($data['transfer_type'] ?? '') !== 'internal';
+                if ($isInternational) {
+                    $narrationParts = [];
+                    if (!empty($data['country']))     $narrationParts[] = "Country: {$data['country']}";
+                    if (!empty($data['swift_code']))  $narrationParts[] = "SWIFT: {$data['swift_code']}";
+                    if (!empty($data['transaction_type'])) $narrationParts[] = "Type: {$data['transaction_type']}";
+                    if (!empty($data['purpose']))     $narrationParts[] = "Purpose: {$data['purpose']}";
 
-$isInternational = ($data['transfer_type'] ?? '') !== 'internal';
+                    $narration = !empty($data['narration'])
+                        ? $data['narration']
+                        : "International Transfer" . (!empty($narrationParts) ? " (" . implode(', ', $narrationParts) . ")" : "");
 
-if ($isInternational) {
-    $narrationParts = [];
-    if (!empty($data['country']))     $narrationParts[] = "Country: {$data['country']}";
-    if (!empty($data['swift_code']))  $narrationParts[] = "SWIFT: {$data['swift_code']}";
-    if (!empty($data['transaction_type'])) $narrationParts[] = "Type: {$data['transaction_type']}";
-    if (!empty($data['purpose']))     $narrationParts[] = "Purpose: {$data['purpose']}";
+                    $recipientAccount = $data['iban'] ?? $data['receiver_account_number'] ?? 'N/A';
 
-    $narration = !empty($data['narration'])
-        ? $data['narration']
-        : "International Transfer" . (!empty($narrationParts) ? " (" . implode(', ', $narrationParts) . ")" : "");
+                    $tx_data = [
+                        "amount"             => $debit_usd,
+                        "sender_name"        => $u['full_name'],
+                        "sender_account"     => $sender['account_number'],
+                        "recipient_name"     => $data['manual_account_name'],
+                        "recipient_account"  => $recipientAccount,
+                        "reference"          => $ref,
+                        "created_at"         => date('Y-m-d H:i:s'),
+                        "narration"          => $narration,
+                        "channel"            => "INTERNATIONAL",
+                        "swift_code"         => $data['swift_code'] ?? '',
+                        "iban"               => $data['iban'] ?? '',
+                        "country"            => $data['country'] ?? '',
+                        "manual_bank_name"   => $data['manual_bank_name'] ?? '',
+                    ];
+                } else {
+                    $tx_data = [
+                        "amount"             => $debit_usd,
+                        "sender_name"        => $u['full_name'],
+                        "sender_account"     => $sender['account_number'],
+                        "recipient_name"     => $data['manual_account_name'],
+                        "recipient_account"  => $data['receiver_account_number'],
+                        "reference"          => $ref,
+                        "created_at"         => date('Y-m-d H:i:s'),
+                        "narration"          => !empty($data['narration']) ? $data['narration'] : "Internal Transfer",
+                        "channel"            => "INTERNAL",
+                    ];
+                }
 
-    $recipientAccount = $data['iban'] ?? $data['receiver_account_number'] ?? 'N/A';
-
-    $tx_data = [
-        "amount"             => $data['amount'],
-        "sender_name"        => $u['full_name'],
-        "sender_account"     => $sender['account_number'],
-        "recipient_name"     => $data['manual_account_name'],
-        "recipient_account"  => $recipientAccount,
-        "reference"          => $ref,
-        "created_at"         => date('Y-m-d H:i:s'),
-        "narration"          => $narration,
-        "channel"            => "INTERNATIONAL",
-        "swift_code"         => $data['swift_code'] ?? '',
-        "iban"               => $data['iban'] ?? '',
-        "country"            => $data['country'] ?? '',
-        "manual_bank_name"   => $data['manual_bank_name'] ?? '',
-    ];
-} else {
-    $tx_data = [
-        "amount"             => $data['amount'],
-        "sender_name"        => $u['full_name'],
-        "sender_account"     => $sender['account_number'],
-        "recipient_name"     => $data['manual_account_name'],
-        "recipient_account"  => $data['receiver_account_number'],
-        "reference"          => $ref,
-        "created_at"         => date('Y-m-d H:i:s'),
-        "narration"          => !empty($data['narration']) ? $data['narration'] : "Internal Transfer",
-        "channel"            => "INTERNAL",
-    ];
-}
-
-// POST to mail.php instead of calling EmailService::sendTransferReceiptEmail directly
-$ch = curl_init('https://bluevult.com/api/sterlingbank/mail.php');
-curl_setopt($ch, CURLOPT_POST, true);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array_merge($tx_data, [
-    'id' => $u['id'],
-    'action' => 'reciept'
-])));
-$result = curl_exec($ch);
-
-if ($result === false) {
-   // logError("Receipt curl failed", curl_error($ch));
-} else {
-   // logError("Receipt curl response", $result); // temporary — remove once confirmed working
-}
-
-curl_close($ch);
+                // POST to mail.php instead of calling EmailService::sendTransferReceiptEmail directly
+                $ch = curl_init('https://bluevult.com/api/sterlingbank/mail.php');
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(array_merge($tx_data, [
+                    'id' => $u['id'],
+                    'action' => 'reciept'
+                ])));
+                $result = curl_exec($ch);
+                curl_close($ch);
 
                 json_response("success", "Transfer completed", ["reference" => $ref]);
             } catch (Exception $e) {
@@ -701,14 +730,17 @@ curl_close($ch);
 
         } else {
             // Local / Internal Transfer
-            $stmt2 = $db->prepare("SELECT id, balance, account_number, user_id FROM accounts WHERE account_number = ? AND status = 'active'");
+            $stmt2 = $db->prepare("SELECT id, balance, account_number, user_id, currency FROM accounts WHERE account_number = ? AND status = 'active'");
             $stmt2->bind_param("s", $data['receiver_account_number']);
             $stmt2->execute();
             $receiver = $stmt2->get_result()->fetch_assoc();
 
             if (!$receiver) json_response("error", "Receiver account not found");
             if ($sender['id'] == $receiver['id']) json_response("error", "Cannot transfer to self");
-            if ($sender['balance'] < $data['amount']) json_response("error", "Insufficient balance");
+            if ($sender['balance'] < $debit_usd) json_response("error", "Insufficient balance");
+
+            $receiver_currency = !empty($receiver['currency']) ? $receiver['currency'] : 'USD';
+            $credit_usd = $input_amount / ($exchange_rates[$receiver_currency] ?: 1.0);
 
             // Fetch receiver user's name
             $stmt_rec_u = $db->prepare("SELECT full_name FROM users WHERE id = ?");
@@ -723,54 +755,55 @@ curl_close($ch);
                 ? (float)$sender['max_transfer_limit']
                 : ($limits[$sender['kyc_tier']] ?? 0);
 
-            if ($data['amount'] > $limit) {
-                json_response("error", "Transfer amount exceeds your current limit of $$limit.");
+            if ($input_amount > $limit) {
+                json_response("error", "Transfer amount exceeds your current limit of $limit $sender_currency.");
             }
 
-            // Today's total sent (including internal and external transfers)
+            // Today's total sent (including internal and external transfers) in USD
             $stmt_limit = $db->prepare("SELECT SUM(amount) FROM transactions WHERE account_id = ? AND type = 'debit' AND channel IN ('internal_transfer', 'external_transfer') AND DATE(created_at) = CURDATE()");
             $stmt_limit->bind_param("i", $sender['id']);
             $stmt_limit->execute();
-            $today_sent = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
+            $today_sent_usd = $stmt_limit->get_result()->fetch_row()[0] ?: 0;
+            $today_sent_preferred = $today_sent_usd * ($exchange_rates[$sender_currency] ?: 1.0);
 
-            if (($today_sent + $data['amount']) > $limit) {
-                json_response("error", "Daily transfer limit exceeded. Remaining: $" . ($limit - $today_sent));
+            if (($today_sent_preferred + $input_amount) > $limit) {
+                json_response("error", "Daily transfer limit exceeded. Remaining: " . ($limit - $today_sent_preferred) . " " . $sender_currency);
             }
 
             $db->begin_transaction();
             try {
                 $ref = "NBK" . time() . strtoupper(bin2hex(random_bytes(3)));
 
-                $stmt3 = $db->prepare("UPDATE accounts SET balance = balance - ? WHERE id = ?");
-                $stmt3->bind_param("di", $data['amount'], $sender['id']);
+                $stmt3 = $db->prepare("UPDATE accounts SET balance = balance - ?, ledger_balance = ledger_balance - ? WHERE id = ?");
+                $stmt3->bind_param("ddi", $debit_usd, $debit_usd, $sender['id']);
                 $stmt3->execute();
 
-                $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ? WHERE id = ?");
-                $stmt4->bind_param("di", $data['amount'], $receiver['id']);
+                $stmt4 = $db->prepare("UPDATE accounts SET balance = balance + ?, ledger_balance = ledger_balance + ? WHERE id = ?");
+                $stmt4->bind_param("ddi", $credit_usd, $credit_usd, $receiver['id']);
                 $stmt4->execute();
 
-                $bal_after_s = $sender['balance'] - $data['amount'];
+                $bal_after_s = $sender['balance'] - $debit_usd;
                 $stmt5 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'debit', 'internal_transfer', ?, ?, ?, ?, ?)");
-                $stmt5->bind_param("iddssi", $sender['id'], $data['amount'], $bal_after_s, $data['narration'], $ref, $receiver['id']);
+                $stmt5->bind_param("iddssi", $sender['id'], $debit_usd, $bal_after_s, $data['narration'], $ref, $receiver['id']);
                 $stmt5->execute();
                 $sender_tx_id = $db->insert_id;
 
-                $bal_after_r = $receiver['balance'] + $data['amount'];
+                $bal_after_r = $receiver['balance'] + $credit_usd;
                 $ref_c = $ref . "_C";
                 $stmt6 = $db->prepare("INSERT INTO transactions (account_id, type, channel, amount, balance_after, narration, reference, counterparty_account_id) VALUES (?, 'credit', 'internal_transfer', ?, ?, ?, ?, ?)");
-                $stmt6->bind_param("iddssi", $receiver['id'], $data['amount'], $bal_after_r, $data['narration'], $ref_c, $sender['id']);
+                $stmt6->bind_param("iddssi", $receiver['id'], $credit_usd, $bal_after_r, $data['narration'], $ref_c, $sender['id']);
                 $stmt6->execute();
 
-                // Credit Notification for receiver
-                $notif_title = "Credit Alert: $" . number_format($data['amount'], 2);
-                $notif_msg = "You have received $" . number_format($data['amount'], 2) ."to your Savings Accounts";
+                // Credit Notification for receiver in their preferred currency
+                $notif_title = "Credit Alert: " . $receiver_currency . " " . number_format($input_amount, 2);
+                $notif_msg = "You have received " . $receiver_currency . " " . number_format($input_amount, 2) ." to your Savings Accounts";
 
                 $stmt_notif = $db->prepare("INSERT INTO notifications (user_id, type, title, message) VALUES ((SELECT user_id FROM accounts WHERE id = ?), 'credit', ?, ?)");
                 $stmt_notif->bind_param("iss", $receiver['id'], $notif_title, $notif_msg);
                 $stmt_notif->execute();
 
-                if ($data['amount'] > 1000000) {
-                    $reason = "High value transfer: $" . number_format($data['amount'], 2);
+                if ($debit_usd > 1000000) {
+                    $reason = "High value transfer: " . $sender_currency . " " . number_format($input_amount, 2);
                     $stmt_aml = $db->prepare("INSERT INTO aml_flags (transaction_id, reason) VALUES (?, ?)");
                     $stmt_aml->bind_param("is", $sender_tx_id, $reason);
                     $stmt_aml->execute();
@@ -780,7 +813,7 @@ curl_close($ch);
 
                 // Send Email receipt
                 $tx_data = [
-                    "amount" => $data['amount'],
+                    "amount" => $debit_usd,
                     "sender_name" => $u['full_name'],
                     "sender_account" => $sender['account_number'],
                     "recipient_name" => $receiver_name,

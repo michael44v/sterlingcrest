@@ -462,7 +462,7 @@ const SendMoney = () => {
             )}
 
             <Input
-              label="Amount (USD)"
+              label={`Amount (${localStorage.getItem('user_currency') || 'USD'})`}
               type="number"
               placeholder="0.00"
               value={formData.amount}
