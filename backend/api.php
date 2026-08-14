@@ -505,11 +505,16 @@ case 'get_transactions':
 
         $db = Database::getInstance()->getConnection();
 
-        // 1. Verify transaction PIN
-        $stmt = $db->prepare("SELECT pin_hash, email, full_name FROM users WHERE id = ?");
+        // 1. Verify transaction PIN and status
+        $stmt = $db->prepare("SELECT pin_hash, email, full_name, status FROM users WHERE id = ?");
         $stmt->bind_param("i", $user['sub']);
         $stmt->execute();
         $u = $stmt->get_result()->fetch_assoc();
+
+        if ($u && $u['status'] === 'suspended' && !empty($data['otp'])) {
+            json_response("account_flagged", "Your account has been flagged for security reasons.");
+        }
+
         if (!Security::verifyData($data['pin'], $u['pin_hash'] ?? '')) {
             json_response("error", "Invalid transaction PIN");
         }
