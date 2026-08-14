@@ -11,7 +11,7 @@ import BeneficiaryList from '../../components/transfer/BeneficiaryList';
 
 const SendMoney = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [searchParams] = useSearchParams();
   const typeParam = searchParams.get('type') || 'internal';
   const [step, setStep] = useState(1);
@@ -21,6 +21,8 @@ const SendMoney = () => {
   const [userTier, setUserTier] = useState(null);
   const [banks, setBanks] = useState([]);
   const [otp, setOtp] = useState('');
+  const [showFlaggedModal, setShowFlaggedModal] = useState(false);
+  const [userCurrency, setUserCurrency] = useState('usd');
   
   const [formData, setFormData] = useState({
     account_number: '',
@@ -87,8 +89,22 @@ const SendMoney = () => {
         }
     };
 
+    const fetchAccountDetails = async () => {
+      try {
+        const response = await api.get('?action=get_account_details');
+        if (response.data.status === 'success') {
+          const currency = response.data.data.currency || 'USD';
+          setUserCurrency(currency.toLowerCase());
+          localStorage.setItem('user_currency', currency);
+        }
+      } catch (e) {
+        console.error('Failed to fetch account details');
+      }
+    };
+
     fetchTier();
     fetchBanks();
+    fetchAccountDetails();
   }, []);
 
   useEffect(() => {
@@ -270,6 +286,8 @@ const SendMoney = () => {
         toast.success(response.data.message || 'OTP sent successfully');
         sendOtpEmail();
         setStep(2.5);
+      } else if (response.data.status === 'account_flagged') {
+        setShowFlaggedModal(true);
       } else {
         toast.error(response.data.message);
       }
@@ -462,7 +480,7 @@ const SendMoney = () => {
             )}
 
             <Input
-              label="Amount (USD)"
+              label={`Amount (${userCurrency})`}
               type="number"
               placeholder="0.00"
               value={formData.amount}
@@ -527,7 +545,7 @@ const SendMoney = () => {
             <div className="bg-chase-light p-6 rounded-2xl border border-chase-border space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-500">From</span>
-                <span className="font-bold text-chase-navy">Your USD Account</span>
+                <span className="font-bold text-chase-navy">Your {userCurrency} Account</span>
               </div>
               <div className="flex justify-center py-2 text-chase-blue">
                 <ArrowRight size={24} />
@@ -630,6 +648,32 @@ const SendMoney = () => {
           </div>
         )}
       </div>
+
+      {showFlaggedModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-chase-blue max-w-md w-full p-8 shadow-2xl rounded-none text-center">
+            <div className="flex justify-center mb-4 text-chase-blue">
+              <AlertTriangle size={64} className="stroke-[2.5]" />
+            </div>
+            <h2 className="text-2xl font-black text-chase-navy uppercase mb-4 tracking-wider font-serif">
+              Account Flagged
+            </h2>
+            <p className="text-gray-700 text-base leading-relaxed mb-6 font-serif">
+              Your account has been flagged for security reasons.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                navigate('/');
+              }}
+              className="w-full py-3 bg-chase-blue hover:bg-chase-mid text-white font-bold uppercase tracking-widest transition-all rounded-none font-serif border-none outline-none"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
