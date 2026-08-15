@@ -230,7 +230,7 @@ const DashboardHome = () => {
                               {tx.narration}
                             </p>
                             <p className="text-[12px] text-gray-400 mt-0.5">
-                              {tx.created_at?.split('T')[1]?.slice(0, 5) || '17:34'}
+                              {tx.created_at?.split('T')[1]?.slice(0, 5) || '17:34'} {tx.channel?.replace('_', ' ') || ''}
                             </p>
                           </div>
 
