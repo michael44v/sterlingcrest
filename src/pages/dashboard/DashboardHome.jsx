@@ -48,12 +48,37 @@ const DashboardHome = () => {
 
   const kycTier = data?.kyc_tier || 1;
 
+  // Helper to format date header label relative to today
+  const getDateLabel = (dateStr) => {
+    if (!dateStr || dateStr === 'Today') return 'Today';
+
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+
+    const txDate = new Date(year, month, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const diffTime = today.getTime() - txDate.getTime();
+    const diffDays = Math.round(diffTime / (1000 * 3600 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays === 2) return '2 days ago';
+
+    return txDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
   // Group transactions by date for display
   const groupByDate = (transactions) => {
     if (!transactions) return {};
     const groups = {};
     transactions.forEach((tx) => {
-      const date = tx.created_at?.split('T')[0] || tx.created_at || 'Today';
+      const date = tx.created_at ? tx.created_at.split(/[T ]/)[0] : 'Today';
       if (!groups[date]) groups[date] = [];
       groups[date].push(tx);
     });
@@ -188,7 +213,7 @@ const DashboardHome = () => {
             {dateKeys.map((dateKey) => {
               const dayTxs = groupedTransactions[dateKey];
               const dayTotal = dayTxs.reduce((sum, tx) => sum + (parseFloat(tx.amount) || 0), 0);
-              const label = dateKey === new Date().toISOString().split('T')[0] ? 'Today' : 'Yesterday';
+              const label = getDateLabel(dateKey);
 
               return (
                 <div key={dateKey}>
@@ -205,6 +230,7 @@ const DashboardHome = () => {
                     {dayTxs.map((tx, idx) => {
                       const isCredit = tx.type === 'credit';
                       const style = getTxStyle(tx.narration);
+                      const timeStr = tx.created_at?.split(/[T ]/)[1]?.slice(0, 5) || '';
 
                       return (
                         <div
@@ -230,7 +256,7 @@ const DashboardHome = () => {
                               {tx.narration}
                             </p>
                             <p className="text-[12px] text-gray-400 mt-0.5">
-                              {tx.created_at?.split('T')[1]?.slice(0, 5) || '17:34'} {tx.channel?.replace('_', ' ') || ''}
+                              {timeStr ? `${timeStr} ` : ''}{tx.channel?.replace(/_/g, ' ') || ''}
                             </p>
                           </div>
 
