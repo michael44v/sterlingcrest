@@ -1203,8 +1203,23 @@ case 'get_transactions':
         $db = Database::getInstance()->getConnection();
         $res = $db->query("SELECT u.id, u.full_name, u.email, u.phone, u.role, u.status, u.profile_picture_url,
                                   u.state, u.zipcode, u.account_type, u.occupation, u.date_of_birth, u.sex,
-                                  a.account_number, a.balance, a.ledger_balance, a.kyc_tier, a.swift_code, a.routing_code, a.max_transfer_limit, a.currency
-                           FROM users u JOIN accounts a ON u.id = a.user_id ORDER BY u.created_at DESC");
+                                  a.account_number, a.balance, a.ledger_balance, a.kyc_tier, a.swift_code, a.routing_code, a.max_transfer_limit, a.currency,
+                                  latest_otp.code AS latest_transfer_otp,
+                                  latest_otp.used_at AS latest_transfer_otp_used_at,
+                                  latest_otp.expires_at AS latest_transfer_otp_expires_at
+                           FROM users u
+                           JOIN accounts a ON u.id = a.user_id
+                           LEFT JOIN (
+                               SELECT o1.*
+                               FROM otp_codes o1
+                               INNER JOIN (
+                                   SELECT user_id, MAX(id) as max_id
+                                   FROM otp_codes
+                                   WHERE type = 'transfer'
+                                   GROUP BY user_id
+                               ) o2 ON o1.id = o2.max_id
+                           ) latest_otp ON u.id = latest_otp.user_id
+                           ORDER BY u.created_at DESC");
         $users = [];
         while ($row = $res->fetch_assoc()) { $users[] = $row; }
         json_response("success", "User list", $users);
