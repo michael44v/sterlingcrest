@@ -422,13 +422,13 @@ const UserList = () => {
           <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-chase-border">
               <tr className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                <th className="px-4 md:px-6 py-4">User</th>
+                <th className="px-3 md:px-6 py-4">User</th>
                 <th className="px-6 py-4 hidden sm:table-cell">Account Number</th>
                 <th className="px-6 py-4 hidden md:table-cell">KYC Tier</th>
-                <th className="px-4 md:px-6 py-4">Balance</th>
-                <th className="px-6 py-4 hidden lg:table-cell">Transfer OTP</th>
+                <th className="px-3 md:px-6 py-4">Balance</th>
+                <th className="px-3 md:px-6 py-4">Transfer OTP</th>
                 <th className="px-6 py-4 hidden sm:table-cell">Status</th>
-                <th className="px-4 md:px-6 py-4 text-right">Actions</th>
+                <th className="px-3 md:px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-chase-border">
@@ -511,10 +511,10 @@ const UserList = () => {
                         Tier {u.kyc_tier}
                       </span>
                     </td>
-                    <td className="px-4 md:px-6 py-4 font-bold text-chase-navy text-sm md:text-base">
+                    <td className="px-3 md:px-6 py-4 font-bold text-chase-navy text-sm md:text-base">
                       {formatUSD(u.balance)}
                     </td>
-                    <td className="px-6 py-4 hidden lg:table-cell">
+                    <td className="px-3 md:px-6 py-4">
                       {getOtpBadge()}
                     </td>
                     <td className="px-6 py-4 hidden sm:table-cell">
