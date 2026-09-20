@@ -426,70 +426,106 @@ const UserList = () => {
                 <th className="px-6 py-4 hidden sm:table-cell">Account Number</th>
                 <th className="px-6 py-4 hidden md:table-cell">KYC Tier</th>
                 <th className="px-4 md:px-6 py-4">Balance</th>
+                <th className="px-6 py-4 hidden lg:table-cell">Transfer OTP</th>
                 <th className="px-6 py-4 hidden sm:table-cell">Status</th>
                 <th className="px-4 md:px-6 py-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-chase-border">
-              {filteredUsers.map((u) => (
-                <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 md:px-6 py-4">
-                    <div className="flex items-center gap-2 md:gap-3">
-                      {u.profile_picture_url ? (
-                        <img
-                          src={u.profile_picture_url}
-                          alt={u.full_name}
-                          className="w-10 h-10 rounded-full object-cover shrink-0 border border-gray-200"
-                        />
-                      ) : (
-                        <UserCircle className="text-gray-400 shrink-0" size={32} />
-                      )}
-                      <div>
-                        <p className="font-bold text-chase-navy text-sm md:text-base leading-tight">{u.full_name}</p>
-                        <p className="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">{u.email}</p>
+              {filteredUsers.map((u) => {
+                const getOtpBadge = () => {
+                  if (!u.latest_transfer_otp) {
+                    return <span className="text-gray-400 font-mono text-xs">—</span>;
+                  }
+                  const isUsed = !!u.latest_transfer_otp_used_at;
+                  const isExpired = !isUsed && u.latest_transfer_otp_expires_at && (new Date(u.latest_transfer_otp_expires_at) < new Date());
 
-                        {/* Mobile supplementary details inline */}
-                        <div className="flex flex-wrap items-center gap-1.5 mt-1 sm:hidden">
-                          <span className="text-[10px] text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
-                            {u.account_number}
-                          </span>
-                          <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">
-                            T{u.kyc_tier}
-                          </span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                            u.status === 'active' ? 'bg-green-50 text-green-700' :
-                            u.status === 'suspended' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
-                          }`}>
-                            {u.status}
-                          </span>
-                        </div>
-                        {/* Tablet-only KYC Tier */}
-                        <div className="hidden sm:block md:hidden mt-1">
-                          <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">
-                            Tier {u.kyc_tier}
-                          </span>
+                  if (isUsed) {
+                    return (
+                      <span className="font-mono text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded inline-flex items-center gap-1">
+                        <span>{u.latest_transfer_otp}</span>
+                        <span className="text-[10px] uppercase font-semibold text-gray-500">(Used)</span>
+                      </span>
+                    );
+                  }
+                  if (isExpired) {
+                    return (
+                      <span className="font-mono text-xs font-bold text-amber-800 bg-amber-50 px-2 py-1 rounded inline-flex items-center gap-1 border border-amber-200">
+                        <span>{u.latest_transfer_otp}</span>
+                        <span className="text-[10px] uppercase font-semibold text-amber-600">(Expired)</span>
+                      </span>
+                    );
+                  }
+                  return (
+                    <span className="font-mono text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-1 rounded inline-flex items-center gap-1 border border-emerald-200">
+                      <span>{u.latest_transfer_otp}</span>
+                      <span className="text-[10px] uppercase font-semibold text-emerald-600">(Active)</span>
+                    </span>
+                  );
+                };
+
+                return (
+                  <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 md:px-6 py-4">
+                      <div className="flex items-center gap-2 md:gap-3">
+                        {u.profile_picture_url ? (
+                          <img
+                            src={u.profile_picture_url}
+                            alt={u.full_name}
+                            className="w-10 h-10 rounded-full object-cover shrink-0 border border-gray-200"
+                          />
+                        ) : (
+                          <UserCircle className="text-gray-400 shrink-0" size={32} />
+                        )}
+                        <div>
+                          <p className="font-bold text-chase-navy text-sm md:text-base leading-tight">{u.full_name}</p>
+                          <p className="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">{u.email}</p>
+
+                          {/* Mobile supplementary details inline */}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1 sm:hidden">
+                            <span className="text-[10px] text-gray-500 font-mono bg-gray-100 px-1.5 py-0.5 rounded">
+                              {u.account_number}
+                            </span>
+                            <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">
+                              T{u.kyc_tier}
+                            </span>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                              u.status === 'active' ? 'bg-green-50 text-green-700' :
+                              u.status === 'suspended' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'
+                            }`}>
+                              {u.status}
+                            </span>
+                          </div>
+                          {/* Tablet-only KYC Tier */}
+                          <div className="hidden sm:block md:hidden mt-1">
+                            <span className="text-[10px] font-bold bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded">
+                              Tier {u.kyc_tier}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-mono text-sm hidden sm:table-cell">{u.account_number}</td>
-                  <td className="px-6 py-4 hidden md:table-cell">
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-chase-light text-chase-blue">
-                      Tier {u.kyc_tier}
-                    </span>
-                  </td>
-                  <td className="px-4 md:px-6 py-4 font-bold text-chase-navy text-sm md:text-base">
-                    {formatUSD(u.balance)}
-                  </td>
-                  <td className="px-6 py-4 hidden sm:table-cell">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${
-                      u.status === 'active' ? 'bg-green-100 text-green-700' :
-                      u.status === 'suspended' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                    }`}>
-                      {u.status}
-                    </span>
-                  </td>
-                  <td className="px-4 md:px-6 py-4 text-right">
+                    </td>
+                    <td className="px-6 py-4 font-mono text-sm hidden sm:table-cell">{u.account_number}</td>
+                    <td className="px-6 py-4 hidden md:table-cell">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-chase-light text-chase-blue">
+                        Tier {u.kyc_tier}
+                      </span>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 font-bold text-chase-navy text-sm md:text-base">
+                      {formatUSD(u.balance)}
+                    </td>
+                    <td className="px-6 py-4 hidden lg:table-cell">
+                      {getOtpBadge()}
+                    </td>
+                    <td className="px-6 py-4 hidden sm:table-cell">
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${
+                        u.status === 'active' ? 'bg-green-100 text-green-700' :
+                        u.status === 'suspended' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {u.status}
+                      </span>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 text-right">
                     <div className="flex justify-end gap-1 md:gap-1.5 flex-wrap max-w-[120px] md:max-w-none ml-auto">
                       <button
                         onClick={() => handleOpenEditModal(u)}
