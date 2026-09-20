@@ -36,8 +36,44 @@ class Database {
         try {
             $this->conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
             $this->conn->set_charset("utf8mb4");
+            $this->ensureSchema();
         } catch(Exception $e) {
             throw new Exception("Database Connection Error: " . $e->getMessage());
+        }
+    }
+
+    private function ensureSchema() {
+        try {
+            $columns_users = [
+                'profile_picture_url' => 'LONGTEXT DEFAULT NULL',
+                'state' => 'VARCHAR(100) DEFAULT NULL',
+                'zipcode' => 'VARCHAR(20) DEFAULT NULL',
+                'account_type' => "VARCHAR(50) DEFAULT 'Savings Account'",
+                'occupation' => 'VARCHAR(100) DEFAULT NULL',
+                'date_of_birth' => 'DATE DEFAULT NULL',
+                'sex' => 'VARCHAR(20) DEFAULT NULL'
+            ];
+            foreach ($columns_users as $col => $type) {
+                $check = $this->conn->query("SHOW COLUMNS FROM users LIKE '$col'");
+                if ($check && $check->num_rows === 0) {
+                    $this->conn->query("ALTER TABLE users ADD COLUMN $col $type");
+                }
+            }
+
+            $columns_accounts = [
+                'swift_code' => 'VARCHAR(100) DEFAULT NULL',
+                'routing_code' => 'VARCHAR(100) DEFAULT NULL',
+                'max_transfer_limit' => 'DECIMAL(15, 2) DEFAULT NULL',
+                'currency' => "VARCHAR(3) DEFAULT 'USD'"
+            ];
+            foreach ($columns_accounts as $col => $type) {
+                $check = $this->conn->query("SHOW COLUMNS FROM accounts LIKE '$col'");
+                if ($check && $check->num_rows === 0) {
+                    $this->conn->query("ALTER TABLE accounts ADD COLUMN $col $type");
+                }
+            }
+        } catch (Exception $e) {
+            // Ignore schema migration exceptions if columns exist or user lacks alter privileges
         }
     }
 
